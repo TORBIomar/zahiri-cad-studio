@@ -10,4 +10,5 @@ import java.util.UUID;
 @Repository
 public interface TubeProjectRepository extends JpaRepository<TubeProject, UUID> {
     List<TubeProject> findAllByOrderByCreatedAtDesc();
+    List<TubeProject> findAllByUserIdOrderByCreatedAtDesc(UUID userId);
 }

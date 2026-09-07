@@ -12,11 +12,26 @@ export interface ProjectDto {
   rectWidth?: number;
   rectHeight?: number;
   cuts: any[];
+  userId?: string;
+  userEmail?: string;
   updatedAt?: string;
 }
 
 export class ProjectService {
   static async saveProject(cadState: CadState): Promise<{ success: boolean; id: string; message: string }> {
+    const userStr = localStorage.getItem('zahiri_cad_user');
+    let userId: string | undefined;
+    let userEmail: string | undefined;
+    if (userStr) {
+      try {
+        const u = JSON.parse(userStr);
+        userId = u.id;
+        userEmail = u.email;
+      } catch {
+        // ignore
+      }
+    }
+
     const payload: ProjectDto = {
       name: `Zahiri_Tube_${cadState.length}x${cadState.outerRadius * 2}mm`,
       materialId: cadState.materialId,
@@ -27,6 +42,8 @@ export class ProjectService {
       rectWidth: cadState.rectWidth,
       rectHeight: cadState.rectHeight,
       cuts: cadState.cuts,
+      userId,
+      userEmail,
       updatedAt: new Date().toISOString(),
     };
 

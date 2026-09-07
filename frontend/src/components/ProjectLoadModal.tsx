@@ -15,6 +15,8 @@ import {
   FileCode,
 } from 'lucide-react';
 
+import { apiClient } from '../services/apiClient';
+
 interface ProjectLoadModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -48,7 +50,18 @@ export const ProjectLoadModal: React.FC<ProjectLoadModalProps> = ({
   const fetchProjects = async () => {
     setLoading(true);
     try {
-      // Fetch local storage saved projects
+      // 1. Fetch remote backend projects if available
+      let backendProjects: ProjectDto[] = [];
+      try {
+        const response = await apiClient.get('/projects');
+        if (Array.isArray(response.data)) {
+          backendProjects = response.data;
+        }
+      } catch {
+        // Backend offline or unreachable
+      }
+
+      // 2. Fetch local storage saved projects
       const localKeys = Object.keys(localStorage).filter((k) => k.startsWith('zahiri_cad_'));
       const localProjects: ProjectDto[] = localKeys
         .map((k) => {
@@ -61,7 +74,7 @@ export const ProjectLoadModal: React.FC<ProjectLoadModalProps> = ({
         })
         .filter(Boolean);
 
-      // Default preset projects
+      // 3. Default preset projects
       const presets: ProjectDto[] = [
         {
           id: 'proj-standard-100',
@@ -93,7 +106,16 @@ export const ProjectLoadModal: React.FC<ProjectLoadModalProps> = ({
         },
       ];
 
-      setProjects([...localProjects, ...presets]);
+      // De-duplicate by ID
+      const all = [...backendProjects, ...localProjects, ...presets];
+      const seen = new Set<string>();
+      const unique = all.filter((p) => {
+        if (!p.id || seen.has(p.id)) return false;
+        seen.add(p.id);
+        return true;
+      });
+
+      setProjects(unique);
     } finally {
       setLoading(false);
     }

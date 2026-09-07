@@ -15,6 +15,9 @@ import {
   Copy,
   Layers,
   Move,
+  ChevronLeft,
+  ChevronRight,
+  Lock,
 } from 'lucide-react';
 
 export const SidebarParameters: React.FC = () => {
@@ -35,6 +38,9 @@ export const SidebarParameters: React.FC = () => {
     rectWidth,
     rectHeight,
     setTubeDimensions,
+    isLeftSidebarOpen,
+    toggleLeftSidebar,
+    designLocked,
   } = useCadStore();
 
   const activeTube = tubes.find((t) => t.id === activeTubeId) || tubes[0];
@@ -47,6 +53,7 @@ export const SidebarParameters: React.FC = () => {
   ];
 
   const applyPreset = (preset: typeof presets[0]) => {
+    if (designLocked) return;
     setProfileType(preset.type as ProfileType);
     setTubeDimensions({
       length: preset.l,
@@ -58,18 +65,67 @@ export const SidebarParameters: React.FC = () => {
   };
 
   return (
-    <aside className="w-80 bg-zinc-900/95 border-r border-zinc-800 flex flex-col h-[calc(100vh-3rem-1.75rem)] z-10 select-none overflow-y-auto text-xs text-zinc-300">
-      <div className="p-3 border-b border-zinc-800 flex items-center justify-between bg-zinc-950/60">
-        <div className="flex items-center gap-2">
-          <Sliders className="w-4 h-4 text-amber-400" />
-          <span className="font-bold text-zinc-100 text-xs uppercase tracking-wider">
-            {t('parameters.title')}
-          </span>
+    <aside
+      className={`drawer-transition flex flex-col h-[calc(100vh-3rem-1.75rem)] z-10 select-none bg-zinc-900/95 backdrop-blur-md border-r border-zinc-800/80 shrink-0 overflow-hidden ${
+        isLeftSidebarOpen ? 'w-80' : 'w-12'
+      }`}
+    >
+      {!isLeftSidebarOpen ? (
+        <div className="flex flex-col items-center py-2.5 h-full w-12 text-zinc-400 animate-in fade-in duration-200">
+          <button
+            onClick={toggleLeftSidebar}
+            className="p-1.5 hover:bg-zinc-800 text-amber-400 hover:text-amber-300 rounded-md transition mb-3 active:scale-95"
+            title="Expand CAD Parameters"
+          >
+            <ChevronRight className="w-4 h-4" />
+          </button>
+
+          <div className="flex flex-col items-center gap-3 text-zinc-500">
+            <button onClick={toggleLeftSidebar} className="p-1.5 hover:text-zinc-200" title="Cross-Section Profile">
+              <Sliders className="w-3.5 h-3.5 text-amber-400/80" />
+            </button>
+            <button onClick={toggleLeftSidebar} className="p-1.5 hover:text-zinc-200" title="Cut Features">
+              <Circle className="w-3.5 h-3.5 text-cyan-400/80" />
+            </button>
+            <button onClick={toggleLeftSidebar} className="p-1.5 hover:text-zinc-200" title="Tube Assembly">
+              <Layers className="w-3.5 h-3.5 text-emerald-400/80" />
+            </button>
+          </div>
+
+          <div className="mt-auto pb-4">
+            <span className="text-[9px] font-mono [writing-mode:vertical-lr] rotate-180 text-zinc-500 uppercase tracking-widest font-semibold">
+              Parameters
+            </span>
+          </div>
         </div>
-        <span className="text-[10px] text-zinc-500 font-mono">ISO 10303</span>
-      </div>
+      ) : (
+        <div className="flex flex-col h-full w-80 overflow-y-auto text-xs text-zinc-300 animate-in fade-in duration-200">
+          <div className="p-3 border-b border-zinc-800 flex items-center justify-between bg-zinc-950/60 sticky top-0 z-10">
+            <div className="flex items-center gap-2">
+              <Sliders className="w-4 h-4 text-amber-400" />
+              <span className="font-bold text-zinc-100 text-xs uppercase tracking-wider">
+                {t('parameters.title')}
+              </span>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="text-[10px] text-zinc-500 font-mono">ISO 10303</span>
+              <button
+                onClick={toggleLeftSidebar}
+                className="p-1 text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800 rounded transition"
+                title="Collapse Parameters"
+              >
+                <ChevronLeft className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          </div>
 
       <div className="p-3 space-y-4">
+        {designLocked && (
+          <div className="bg-amber-500/15 border border-amber-500/40 text-amber-300 p-2 rounded text-[11px] flex items-center gap-2 animate-in fade-in">
+            <Lock className="w-3.5 h-3.5 shrink-0" />
+            <span>Inspection Lock Active: Geometry protected from accidental changes.</span>
+          </div>
+        )}
         {/* Multi-Tube Assembly Manager */}
         <div className="bg-zinc-950/90 p-2.5 rounded border border-zinc-800 space-y-2.5">
           <div className="flex items-center justify-between border-b border-zinc-800 pb-1.5">
@@ -403,6 +459,8 @@ export const SidebarParameters: React.FC = () => {
 
         <CutFeatureManager />
       </div>
+        </div>
+      )}
     </aside>
   );
 };

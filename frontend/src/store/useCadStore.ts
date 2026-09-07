@@ -135,6 +135,23 @@ export interface CadState {
   undoStack: HistorySnapshot[];
   redoStack: HistorySnapshot[];
 
+  // Workspace Layout & Role Superpower States
+  isLeftSidebarOpen: boolean;
+  isRightSidebarOpen: boolean;
+  designLocked: boolean;
+  batchQuantity: number;
+  laserSpeedMultiplier: number;
+  isGCodeModalOpen: boolean;
+
+  toggleLeftSidebar: () => void;
+  toggleRightSidebar: () => void;
+  setLeftSidebarOpen: (open: boolean) => void;
+  setRightSidebarOpen: (open: boolean) => void;
+  toggleDesignLock: () => void;
+  setBatchQuantity: (qty: number) => void;
+  setLaserSpeedMultiplier: (speed: number) => void;
+  setGCodeModalOpen: (open: boolean) => void;
+
   // Tube Assembly Management Actions
   addTube: (profile?: ProfileType) => void;
   selectTube: (id: string) => void;
@@ -239,6 +256,13 @@ const DEFAULT_STATE = {
   isLaserAnimating: true,
   undoStack: [],
   redoStack: [],
+
+  isLeftSidebarOpen: true,
+  isRightSidebarOpen: true,
+  designLocked: false,
+  batchQuantity: 25,
+  laserSpeedMultiplier: 1,
+  isGCodeModalOpen: false,
 };
 
 const getSnapshot = (state: CadState): HistorySnapshot => ({
@@ -551,4 +575,13 @@ export const useCadStore = create<CadState>((set, get) => ({
       redoStack: newRedoStack,
     });
   },
+
+  toggleLeftSidebar: () => set((s) => ({ isLeftSidebarOpen: !s.isLeftSidebarOpen })),
+  toggleRightSidebar: () => set((s) => ({ isRightSidebarOpen: !s.isRightSidebarOpen })),
+  setLeftSidebarOpen: (open: boolean) => set({ isLeftSidebarOpen: open }),
+  setRightSidebarOpen: (open: boolean) => set({ isRightSidebarOpen: open }),
+  toggleDesignLock: () => set((s) => ({ designLocked: !s.designLocked })),
+  setBatchQuantity: (qty: number) => set({ batchQuantity: Math.max(1, qty) }),
+  setLaserSpeedMultiplier: (speed: number) => set({ laserSpeedMultiplier: speed }),
+  setGCodeModalOpen: (open: boolean) => set({ isGCodeModalOpen: open }),
 }));

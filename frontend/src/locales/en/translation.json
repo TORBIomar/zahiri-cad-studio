@@ -82,5 +82,17 @@
     "copied": "Copied!",
     "download": "Download .NC File",
     "format": "Format: Standard ISO / Rotary A-Axis Interpolation"
+  },
+  "auth": {
+    "signIn": "Sign In",
+    "register": "Register Account",
+    "guestPreview": "Guest Preview",
+    "guestNotice": "CAD Guest Preview: Parametric modeling, laser cuts & CNC exports are fully unlocked. Sign in to sync designs to your private cloud workspace.",
+    "roles": {
+      "engineer": "CAD Engineer",
+      "operator": "CNC Operator",
+      "admin": "Plant Admin"
+    },
+    "logout": "Sign Out"
   }
 }

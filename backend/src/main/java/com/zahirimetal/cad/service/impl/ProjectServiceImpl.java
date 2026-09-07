@@ -4,9 +4,13 @@ import com.zahirimetal.cad.dto.CutFeatureDto;
 import com.zahirimetal.cad.dto.TubeProjectDto;
 import com.zahirimetal.cad.entity.CutFeature;
 import com.zahirimetal.cad.entity.TubeProject;
+import com.zahirimetal.cad.entity.User;
 import com.zahirimetal.cad.repository.TubeProjectRepository;
+import com.zahirimetal.cad.repository.UserRepository;
 import com.zahirimetal.cad.service.ProjectService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -19,6 +23,7 @@ import java.util.stream.Collectors;
 public class ProjectServiceImpl implements ProjectService {
 
     private final TubeProjectRepository tubeProjectRepository;
+    private final UserRepository userRepository;
 
     @Override
     @Transactional
@@ -34,6 +39,14 @@ public class ProjectServiceImpl implements ProjectService {
                 .rectWidth(projectDto.getRectWidth())
                 .rectHeight(projectDto.getRectHeight())
                 .build();
+
+        // Associate user if logged in or passed in DTO
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        if (auth != null && auth.getPrincipal() instanceof User userPrincipal) {
+            project.setUser(userPrincipal);
+        } else if (projectDto.getUserId() != null) {
+            userRepository.findById(projectDto.getUserId()).ifPresent(project::setUser);
+        }
 
         if (projectDto.getCuts() != null) {
             projectDto.getCuts().forEach(cDto -> {
@@ -74,6 +87,15 @@ public class ProjectServiceImpl implements ProjectService {
     }
 
     @Override
+    @Transactional(readOnly = true)
+    public List<TubeProjectDto> getProjectsByUser(UUID userId) {
+        return tubeProjectRepository.findAllByUserIdOrderByCreatedAtDesc(userId)
+                .stream()
+                .map(this::mapToDto)
+                .collect(Collectors.toList());
+    }
+
+    @Override
     @Transactional
     public void deleteProject(UUID id) {
         tubeProjectRepository.deleteById(id);
@@ -107,6 +129,8 @@ public class ProjectServiceImpl implements ProjectService {
                 .rectHeight(entity.getRectHeight())
                 .createdAt(entity.getCreatedAt())
                 .updatedAt(entity.getUpdatedAt())
+                .userId(entity.getUser() != null ? entity.getUser().getId() : null)
+                .userEmail(entity.getUser() != null ? entity.getUser().getEmail() : null)
                 .cuts(cutDtos)
                 .build();
     }

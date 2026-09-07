@@ -25,5 +25,7 @@ public class TubeProjectDto {
     private Double rectHeight;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
+    private UUID userId;
+    private String userEmail;
     private List<CutFeatureDto> cuts;
 }

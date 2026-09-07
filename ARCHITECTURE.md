@@ -21,8 +21,8 @@ A browser-based 3D parametric CAD for designing laser-cut metal tubes and export
 
 | Layer | Technologies |
 |---|---|
-| **Frontend** | React 18 · TypeScript · Vite · Three.js · R3F · CSG · Zustand · Tailwind 4 · Axios · Framer Motion · jsPDF · i18next |
-| **Backend** | Java 17 · Spring Boot 3.3 · Spring Data JPA · Hibernate · Lombok · Maven |
+| **Frontend** | React 18 · TypeScript · Vite · Three.js · R3F · CSG · Zustand (CAD + Auth) · Tailwind 4 · Axios · Framer Motion · jsPDF · i18next |
+| **Backend** | Java 17 · Spring Boot 3.3 · Spring Security · JJWT (0.12.6) · Spring Data JPA · Hibernate · Lombok · Maven |
 | **Database** | MySQL 8 (XAMPP) · HikariCP |
 | **Deploy** | Vercel (frontend only) |
 
@@ -35,16 +35,18 @@ A browser-based 3D parametric CAD for designing laser-cut metal tubes and export
 │
 ├── 🖥️ frontend/
 │   ├── src/
-│   │   ├── App.tsx                    # Root layout
+│   │   ├── App.tsx                    # Root layout + Auth initialization & Guest Preview bar
 │   │   ├── main.tsx                   # Entry point
 │   │   │
 │   │   ├── components/
-│   │   │   ├── HeaderNav.tsx          # Top bar — menus, export, undo/redo
+│   │   │   ├── HeaderNav.tsx          # Top bar — auth status, menus, export, undo/redo
+│   │   │   ├── AuthModal.tsx          # Industrial dark tech modal (Login/Register/Demo/Guest)
+│   │   │   ├── UserProfileMenu.tsx    # Header avatar popover & role status
 │   │   │   ├── SidebarParameters.tsx  # Left — dimensions, materials, tubes
 │   │   │   ├── SidebarReadouts.tsx    # Right — weight, volume, alerts
 │   │   │   ├── CutFeatureManager.tsx  # Cut CRUD list
 │   │   │   ├── GCodeExportModal.tsx   # G-Code preview & download
-│   │   │   ├── ProjectLoadModal.tsx   # Save/Load/Import modal
+│   │   │   ├── ProjectLoadModal.tsx   # Save/Load/Import modal (Cloud + Local)
 │   │   │   ├── StatusBar.tsx          # Bottom info bar
 │   │   │   └── canvas/
 │   │   │       ├── CadCanvas.tsx      # 3D viewport wrapper
@@ -53,11 +55,12 @@ A browser-based 3D parametric CAD for designing laser-cut metal tubes and export
 │   │   │       └── Blueprint2DView.tsx# 2D unrolled sheet SVG
 │   │   │
 │   │   ├── store/
-│   │   │   └── useCadStore.ts         # Zustand — all app state
+│   │   │   ├── useCadStore.ts         # Zustand — all CAD & 3D state
+│   │   │   └── useAuthStore.ts        # Zustand — JWT tokens, user roles, guest preview
 │   │   │
 │   │   ├── services/
-│   │   │   ├── apiClient.ts           # Axios config
-│   │   │   ├── projectService.ts      # Save/Load API calls
+│   │   │   ├── apiClient.ts           # Axios config with JWT Bearer interceptor
+│   │   │   ├── projectService.ts      # Save/Load API calls with user metadata
 │   │   │   ├── pdfExportService.ts    # PDF generation
 │   │   │   └── dxfExportService.ts    # DXF 2D export
 │   │   │
@@ -67,7 +70,7 @@ A browser-based 3D parametric CAD for designing laser-cut metal tubes and export
 │   │   │   └── collisionChecker.ts    # Feasibility validation
 │   │   │
 │   │   ├── i18n/config.ts             # EN / FR setup
-│   │   └── locales/{en,fr}/           # Translations
+│   │   └── locales/{en,fr}/           # Translations (CAD & Auth)
 │   │
 │   ├── package.json
 │   └── vite.config.ts
@@ -76,12 +79,25 @@ A browser-based 3D parametric CAD for designing laser-cut metal tubes and export
 │   └── src/main/java/com/zahirimetal/cad/
 │       ├── ZahiriMetalCadBackendApplication.java
 │       ├── config/CorsConfig.java
-│       ├── controller/ProjectController.java
-│       ├── dto/{TubeProjectDto, CutFeatureDto}.java
-│       ├── entity/{TubeProject, CutFeature}.java
-│       ├── repository/{TubeProject, CutFeature}Repository.java
-│       └── service/ProjectService.java
-│           └── impl/ProjectServiceImpl.java
+│       ├── security/
+│       │   ├── SecurityConfig.java         # Spring Security 3.3 Filter Chain
+│       │   ├── JwtService.java             # JJWT token generation & validation
+│       │   └── JwtAuthenticationFilter.java# Bearer token request filter
+│       ├── controller/
+│       │   ├── AuthController.java         # /api/v1/auth (login, register, me)
+│       │   └── ProjectController.java      # /api/v1/projects & /api/v1/projects/my
+│       ├── dto/
+│       │   ├── {AuthRequestDto, RegisterRequestDto, AuthResponseDto, UserDto}.java
+│       │   └── {TubeProjectDto, CutFeatureDto}.java
+│       ├── entity/
+│       │   ├── {User, Role}.java           # User entity with UserDetails & RBAC
+│       │   └── {TubeProject, CutFeature}.java
+│       ├── repository/
+│       │   ├── UserRepository.java
+│       │   └── {TubeProject, CutFeature}Repository.java
+│       └── service/
+│           ├── AuthService.java & impl/AuthServiceImpl.java
+│           └── ProjectService.java & impl/ProjectServiceImpl.java
 │
 ├── vercel.json
 └── README.md

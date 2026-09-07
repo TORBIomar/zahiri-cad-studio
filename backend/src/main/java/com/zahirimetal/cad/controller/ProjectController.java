@@ -38,6 +38,19 @@ public class ProjectController {
     }
 
     /**
+     * GET /api/v1/projects/my
+     * List all CAD projects belonging to the authenticated user
+     */
+    @GetMapping("/my")
+    public ResponseEntity<List<TubeProjectDto>> getMyProjects(@org.springframework.security.core.annotation.AuthenticationPrincipal com.zahirimetal.cad.entity.User user) {
+        if (user == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+        List<TubeProjectDto> projects = projectService.getProjectsByUser(user.getId());
+        return ResponseEntity.ok(projects);
+    }
+
+    /**
      * GET /api/v1/projects
      * List all saved CAD projects ordered by creation date
      */

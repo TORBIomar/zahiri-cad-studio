@@ -13,6 +13,8 @@ import {
   CheckCircle2,
   AlertTriangle,
   Scissors,
+  ChevronLeft,
+  ChevronRight,
 } from 'lucide-react';
 
 export const SidebarReadouts: React.FC = () => {
@@ -28,6 +30,8 @@ export const SidebarReadouts: React.FC = () => {
     cuts,
     materialId,
     laserPowerKW,
+    isRightSidebarOpen,
+    toggleRightSidebar,
   } = cadState;
 
   const materialSpec = MATERIALS[materialId] || MATERIALS.steel_304;
@@ -59,29 +63,21 @@ export const SidebarReadouts: React.FC = () => {
       if (cut.type === 'hole') {
         const cutAreaCm2 = Math.PI * (cut.radius / 10) ** 2;
         volumeCm3 -= cutAreaCm2 * (wallThickness / 10);
-        totalCutPerimeterMm += Math.PI * (cut.radius * 2);
+        totalCutPerimeterMm += 2 * Math.PI * cut.radius;
       } else if (cut.type === 'slot') {
-        const slotAreaCm2 = (cut.slotWidth / 10) * (cut.slotLength / 10);
-        volumeCm3 -= slotAreaCm2 * (wallThickness / 10);
-        totalCutPerimeterMm += 2 * cut.slotLength + 2 * cut.slotWidth;
+        const cutAreaCm2 = (cut.slotLength / 10) * (cut.slotWidth / 10);
+        volumeCm3 -= cutAreaCm2 * (wallThickness / 10);
+        totalCutPerimeterMm += 2 * (cut.slotLength + cut.slotWidth);
       } else if (cut.type === 'mitre_start' || cut.type === 'mitre_end') {
         totalCutPerimeterMm += (outerRadius * 2) * Math.SQRT2;
       }
     });
 
     volumeCm3 = Math.max(0.1, volumeCm3);
-    const massKg = (volumeCm3 * materialSpec.density) / 1000;
+    const massKg = Math.max(0, (volumeCm3 * materialSpec.density) / 1000);
 
-    const baseSpeedMPerMin = Math.max(
-      0.5,
-      ((laserPowerKW * 4.5) / wallThickness ** 0.8) * materialSpec.cuttingSpeedFactor
-    );
-    const speedMmPerSec = (baseSpeedMPerMin * 1000) / 60;
-
-    const cutTimeSec =
-      totalCutPerimeterMm > 0
-        ? totalCutPerimeterMm / speedMmPerSec + enabledCuts.length * 1.2
-        : 0;
+    const baseSpeedMPerMin = 4.5 * (laserPowerKW / 3.0) * (materialSpec.cuttingSpeedFactor || 1.0) / (wallThickness / 2.0);
+    const cutTimeSec = totalCutPerimeterMm > 0 ? (totalCutPerimeterMm / 1000 / (baseSpeedMPerMin / 60)) + enabledCuts.length * 0.4 : 0;
 
     return {
       volumeCm3: volumeCm3.toFixed(1),
@@ -105,18 +101,61 @@ export const SidebarReadouts: React.FC = () => {
   ]);
 
   return (
-    <aside className="w-72 bg-zinc-900/95 border-l border-zinc-800 flex flex-col h-[calc(100vh-3rem-1.75rem)] z-10 select-none overflow-y-auto text-xs text-zinc-300">
-      <div className="p-3 border-b border-zinc-800 flex items-center justify-between bg-zinc-950/60">
-        <div className="flex items-center gap-2">
-          <Activity className="w-4 h-4 text-cyan-400" />
-          <span className="font-bold text-zinc-100 text-xs uppercase tracking-wider">
-            {t('telemetry.title')}
-          </span>
-        </div>
-        <span className="text-[10px] text-zinc-500 font-mono">LIVE CAD</span>
-      </div>
+    <aside
+      className={`drawer-transition flex flex-col h-[calc(100vh-3rem-1.75rem)] z-10 select-none bg-zinc-900/95 backdrop-blur-md border-l border-zinc-800/80 shrink-0 overflow-hidden ${
+        isRightSidebarOpen ? 'w-72' : 'w-12'
+      }`}
+    >
+      {!isRightSidebarOpen ? (
+        <div className="flex flex-col items-center py-2.5 h-full w-12 text-zinc-400 animate-in fade-in duration-200">
+          <button
+            onClick={toggleRightSidebar}
+            className="p-1.5 hover:bg-zinc-800 text-cyan-400 hover:text-cyan-300 rounded-md transition mb-3 active:scale-95"
+            title="Expand Telemetry & Stats"
+          >
+            <ChevronLeft className="w-4 h-4" />
+          </button>
 
-      <div className="p-3 space-y-4">
+          <div className="flex flex-col items-center gap-3 text-zinc-500">
+            <button onClick={toggleRightSidebar} className="p-1.5 hover:text-zinc-200" title="Mass & Weight">
+              <Weight className="w-3.5 h-3.5 text-amber-400/80" />
+            </button>
+            <button onClick={toggleRightSidebar} className="p-1.5 hover:text-zinc-200" title="Laser Feedrate">
+              <Gauge className="w-3.5 h-3.5 text-cyan-400/80" />
+            </button>
+            <button onClick={toggleRightSidebar} className="p-1.5 hover:text-zinc-200" title="Feasibility Checks">
+              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400/80" />
+            </button>
+          </div>
+
+          <div className="mt-auto pb-4">
+            <span className="text-[9px] font-mono [writing-mode:vertical-lr] text-zinc-500 uppercase tracking-widest font-semibold">
+              Telemetry
+            </span>
+          </div>
+        </div>
+      ) : (
+        <div className="flex flex-col h-full w-72 overflow-y-auto text-xs text-zinc-300 animate-in fade-in duration-200">
+          <div className="p-3 border-b border-zinc-800 flex items-center justify-between bg-zinc-950/60 sticky top-0 z-10">
+            <div className="flex items-center gap-2">
+              <Activity className="w-4 h-4 text-cyan-400" />
+              <span className="font-bold text-zinc-100 text-xs uppercase tracking-wider">
+                {t('telemetry.title')}
+              </span>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="text-[10px] text-zinc-500 font-mono">LIVE CAD</span>
+              <button
+                onClick={toggleRightSidebar}
+                className="p-1 text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800 rounded transition"
+                title="Collapse Telemetry"
+              >
+                <ChevronRight className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          </div>
+
+          <div className="p-3 space-y-4">
         <div className="bg-zinc-950 p-3 rounded border border-zinc-800 space-y-2.5">
           <div className="flex items-center justify-between border-b border-zinc-800/80 pb-1.5">
             <span className="text-[11px] font-semibold text-zinc-400 uppercase tracking-wider">
@@ -227,6 +266,8 @@ export const SidebarReadouts: React.FC = () => {
           </div>
         )}
       </div>
+        </div>
+      )}
     </aside>
   );
 };

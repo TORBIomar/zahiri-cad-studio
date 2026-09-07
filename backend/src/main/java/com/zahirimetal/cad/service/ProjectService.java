@@ -9,5 +9,6 @@ public interface ProjectService {
     TubeProjectDto saveProject(TubeProjectDto projectDto);
     TubeProjectDto getProjectById(UUID id);
     List<TubeProjectDto> getAllProjects();
+    List<TubeProjectDto> getProjectsByUser(UUID userId);
     void deleteProject(UUID id);
 }

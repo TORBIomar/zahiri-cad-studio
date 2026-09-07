@@ -4,18 +4,30 @@ import { OrbitControls, GizmoHelper, GizmoViewport, Grid, ContactShadows, Enviro
 import { useCadStore } from '../../store/useCadStore';
 import { ParametricTube } from './ParametricTube';
 import { LaserCutEffect } from './LaserCutEffect';
+import { CameraController } from './CameraController';
+import { ViewportToolbar } from './ViewportToolbar';
 
-export const CadCanvas: React.FC = () => {
+interface CadCanvasProps {
+  onOpenShortcuts?: () => void;
+}
+
+export const CadCanvas: React.FC<CadCanvasProps> = ({ onOpenShortcuts }) => {
   const { showGrid, showAxes } = useCadStore();
 
   return (
-    <div className="relative w-full h-full bg-zinc-950 cad-grid-pattern">
+    <div className="relative w-full h-full bg-zinc-950 cad-grid-pattern overflow-hidden">
+      {/* Floating CAD Viewport Toolbar */}
+      <ViewportToolbar onOpenShortcuts={onOpenShortcuts} />
+
       <Canvas
         shadows
         camera={{ position: [5, 4, 8], fov: 40, near: 0.1, far: 100 }}
         gl={{ antialias: true, alpha: false, powerPreference: 'high-performance' }}
       >
         <color attach="background" args={['#09090b']} />
+
+        {/* Dynamic Smooth Camera Lerping Controller */}
+        <CameraController />
 
         {/* Real HDRI Studio Environment Map for Metallic Reflections */}
         <Environment preset="city" />

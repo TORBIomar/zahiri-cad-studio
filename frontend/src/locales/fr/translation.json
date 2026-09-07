@@ -82,5 +82,17 @@
     "copied": "Copié !",
     "download": "Télécharger Fichier .NC",
     "format": "Format : ISO Standard / Interpolation Axe Rotatif A"
+  },
+  "auth": {
+    "signIn": "Connexion",
+    "register": "Créer un Compte",
+    "guestPreview": "Mode Invité",
+    "guestNotice": "Aperçu CAO Invité : Modélisation 3D, découpes laser et exports CNC totalement actifs. Connectez-vous pour synchroniser vos projets sur le cloud.",
+    "roles": {
+      "engineer": "Ingénieur CAO",
+      "operator": "Opérateur CNC",
+      "admin": "Directeur d'Usine"
+    },
+    "logout": "Déconnexion"
   }
 }
