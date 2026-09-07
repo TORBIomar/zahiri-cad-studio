@@ -46,6 +46,10 @@ public class User implements UserDetails {
     @Column(name = "company")
     private String company;
 
+    @Column(name = "approved")
+    @Builder.Default
+    private Boolean approved = true;
+
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;

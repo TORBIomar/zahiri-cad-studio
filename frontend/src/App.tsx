@@ -11,6 +11,9 @@ import { AuthModal } from './components/AuthModal';
 import { RoleSuperpowerBar } from './components/RoleSuperpowerBar';
 import { ToastContainer } from './components/ToastContainer';
 import { ShortcutsModal } from './components/ShortcutsModal';
+import { OperatorErrorReportModal } from './components/OperatorErrorReportModal';
+import { IncidentReviewModal } from './components/IncidentReviewModal';
+import { AdminUserApprovalModal } from './components/AdminUserApprovalModal';
 
 export function App() {
   const {
@@ -114,6 +117,9 @@ export function App() {
 
       {/* High-tech Modals & Overlays */}
       <AuthModal />
+      <OperatorErrorReportModal />
+      <IncidentReviewModal />
+      <AdminUserApprovalModal />
       <ShortcutsModal
         isOpen={isShortcutsOpen}
         onClose={() => setIsShortcutsOpen(false)}

@@ -82,8 +82,8 @@ export class PdfExportService {
 
     const leftSpecs = [
       [isFr ? 'Profil Tube:' : 'Tube Profile:', state.profileType.toUpperCase()],
-      [isFr ? 'Longueur Totale (L):' : 'Total Length (L):', `${state.length} mm`],
-      [isFr ? 'Diamètre Extérieur (Ø):' : 'Outer Diameter (Ø):', `${outerDiameter} mm`],
+      [isFr ? 'Longueur Totale (L):' : 'Total Length (L):', `${state.length} mm (${(state.length / 10).toFixed(1)} cm)`],
+      [isFr ? 'Diamètre Extérieur (Ø):' : 'Outer Diameter (Ø):', `${outerDiameter} mm (${(outerDiameter / 10).toFixed(1)} cm)`],
       [isFr ? 'Épaisseur de Paroi (T):' : 'Wall Thickness (T):', `${state.wallThickness} mm`],
     ];
 
@@ -238,18 +238,19 @@ export class PdfExportService {
 
     yPos += 11;
     const rawCostPerKgMap: Record<string, number> = {
-      steel_s235: 14.0,
-      steel_304: 38.0,
-      aluminum_6061: 48.0,
-      brass: 68.0,
-      titanium_gr5: 320.0,
+      steel_s235: 8.5,
+      steel_304: 21.0,
+      aluminum_6061: 25.0,
+      brass: 38.0,
+      titanium_gr5: 140.0,
     };
-    const rawCostPerKg = rawCostPerKgMap[state.materialId] || 15.0;
+    const rawCostPerKg = rawCostPerKgMap[state.materialId] || 9.5;
     const matCost = quotation?.materialCostDH ?? (massKg * rawCostPerKg).toFixed(1);
-    const cutTimeMin = (enabledCuts.length * 0.45 + (state.length / 1000) * 0.1) / (material.cuttingSpeedFactor || 1);
-    const machCost = quotation?.machineCostDH ?? ((cutTimeMin / 60) * 210).toFixed(1);
-    const uCost = quotation?.unitCost ?? Math.round(Math.max(25, Number(matCost) + Number(machCost) + 12));
+    const cutTimeMin = (enabledCuts.length * 0.35 + (state.length / 1000) * 0.08) / (material.cuttingSpeedFactor || 1);
+    const machCost = quotation?.machineCostDH ?? ((cutTimeMin / 60) * 95).toFixed(1);
     const bQty = quotation?.batchQuantity ?? 10;
+    const amortizedSetupDH = quotation ? Math.max(0.2, 10.0 / bQty) : Math.max(0.2, 10.0 / bQty);
+    const uCost = quotation?.unitCost ?? Math.max(5, Math.round(Number(matCost) + Number(machCost) + amortizedSetupDH));
     const discountRate = bQty >= 50 ? 0.88 : bQty >= 20 ? 0.94 : 1.0;
     const bTotal = quotation?.batchTotal ?? Math.round(uCost * bQty * discountRate).toLocaleString('fr-FR');
 
@@ -267,7 +268,13 @@ export class PdfExportService {
     doc.setTextColor(203, 213, 225);
     doc.text(isFr ? `• Matière Première: ${matCost} DH` : `• Raw Material: ${matCost} DH`, 18, yPos + 10.5);
     doc.text(isFr ? `• Découpe Laser & Gaz: ${machCost} DH` : `• Laser Cutting & Gas: ${machCost} DH`, 18, yPos + 15);
-    doc.text(isFr ? '• Calage & Fixation Mandrin: 12.0 DH' : '• Rotary Chuck Setup: 12.0 DH', 18, yPos + 19.5);
+    doc.text(
+      isFr
+        ? `• Calage Mandrin Amorti: ${amortizedSetupDH.toFixed(1)} DH`
+        : `• Amortized Setup: ${amortizedSetupDH.toFixed(1)} DH`,
+      18,
+      yPos + 19.5
+    );
 
     doc.setTextColor(148, 163, 184);
     doc.setFontSize(8);

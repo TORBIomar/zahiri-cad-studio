@@ -15,6 +15,9 @@ export interface ProjectDto {
   userId?: string;
   userEmail?: string;
   updatedAt?: string;
+  workflowStatus?: string;
+  workflowNotes?: string;
+  incidents?: any[];
 }
 
 export class ProjectService {
@@ -44,6 +47,9 @@ export class ProjectService {
       cuts: cadState.cuts,
       userId,
       userEmail,
+      workflowStatus: cadState.workflowStatus,
+      workflowNotes: cadState.workflowNotes,
+      incidents: cadState.incidents,
       updatedAt: new Date().toISOString(),
     };
 
@@ -56,7 +62,7 @@ export class ProjectService {
       };
     } catch (error) {
       const mockId = `local-proj-${Date.now()}`;
-      localStorage.setItem(`zahiri_cad_${mockId}`, JSON.stringify(payload));
+      localStorage.setItem(`zahiri_cad_project_${mockId}`, JSON.stringify(payload));
       return {
         success: true,
         id: mockId,
@@ -70,7 +76,9 @@ export class ProjectService {
       const response = await apiClient.get(`/projects/${projectId}`);
       return response.data;
     } catch (error) {
-      const localData = localStorage.getItem(`zahiri_cad_${projectId}`);
+      const localData =
+        localStorage.getItem(`zahiri_cad_project_${projectId}`) ||
+        localStorage.getItem(`zahiri_cad_${projectId}`);
       return localData ? JSON.parse(localData) : null;
     }
   }

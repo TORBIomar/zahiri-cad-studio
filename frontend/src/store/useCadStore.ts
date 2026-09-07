@@ -1,9 +1,45 @@
 import { create } from 'zustand';
+import { useAuthStore } from './useAuthStore';
+
+const isMutationBlocked = (state: CadState): boolean => {
+  if (state.designLocked) return true;
+  const user = useAuthStore.getState().user;
+  return user?.role === 'ROLE_OPERATOR';
+};
 
 export type ProfileType = 'round' | 'square' | 'rectangular';
 export type CutType = 'hole' | 'slot' | 'mitre_start' | 'mitre_end';
 export type MaterialId = 'steel_304' | 'steel_s235' | 'aluminum_6061' | 'titanium_gr5' | 'brass';
 export type ViewMode = 'shaded' | 'wireframe' | 'laser_cut' | 'blueprint';
+
+export type ProjectWorkflowStatus =
+  | 'DRAFT'
+  | 'PENDING_APPROVAL'
+  | 'APPROVED'
+  | 'REJECTED'
+  | 'IN_PRODUCTION'
+  | 'ERROR_REPORTED';
+
+export type IncidentCategory =
+  | 'clamp_collision'
+  | 'pierce_failure'
+  | 'tolerance_defect'
+  | 'gas_pressure'
+  | 'other';
+
+export interface MachineIncident {
+  id: string;
+  timestamp: string;
+  reportedBy: string;
+  severity: 'warning' | 'critical';
+  category: IncidentCategory;
+  title: string;
+  details: string;
+  featureId?: string;
+  positionZ?: number;
+  resolved: boolean;
+  resolutionNote?: string;
+}
 
 export interface CutFeature {
   id: string;
@@ -97,6 +133,8 @@ export interface TubeItem {
   wallThickness: number;
   rectWidth: number;
   rectHeight: number;
+  cornerRadius: number;
+  weldSeamAngle: number;
   position: [number, number, number]; // [X, Y, Z] spatial offset in Three.js units
   rotation: [number, number, number]; // [RX, RY, RZ] spatial rotation in degrees
   cuts: CutFeature[];
@@ -120,6 +158,8 @@ export interface CadState {
   wallThickness: number;
   rectWidth: number;
   rectHeight: number;
+  cornerRadius: number;
+  weldSeamAngle: number;
   cuts: CutFeature[];
   selectedCutId: string | null;
   materialId: MaterialId;
@@ -138,19 +178,38 @@ export interface CadState {
   // Workspace Layout & Role Superpower States
   isLeftSidebarOpen: boolean;
   isRightSidebarOpen: boolean;
+  dimensionUnit: 'mm' | 'cm';
   designLocked: boolean;
   batchQuantity: number;
   laserSpeedMultiplier: number;
   isGCodeModalOpen: boolean;
 
+  // Industrial Workflow Lifecycle
+  workflowStatus: ProjectWorkflowStatus;
+  workflowNotes: string;
+  incidents: MachineIncident[];
+  isIncidentModalOpen: boolean;
+  isReviewIncidentsOpen: boolean;
+
   toggleLeftSidebar: () => void;
   toggleRightSidebar: () => void;
   setLeftSidebarOpen: (open: boolean) => void;
   setRightSidebarOpen: (open: boolean) => void;
+  setDimensionUnit: (unit: 'mm' | 'cm') => void;
   toggleDesignLock: () => void;
   setBatchQuantity: (qty: number) => void;
   setLaserSpeedMultiplier: (speed: number) => void;
   setGCodeModalOpen: (open: boolean) => void;
+
+  setWorkflowStatus: (status: ProjectWorkflowStatus, notes?: string) => void;
+  submitForApproval: () => void;
+  approveProject: (notes?: string) => void;
+  rejectProject: (reason: string) => void;
+  startProduction: () => void;
+  reportMachineIncident: (incident: Omit<MachineIncident, 'id' | 'timestamp' | 'resolved'>) => void;
+  resolveIncident: (incidentId: string, resolutionNote?: string) => void;
+  setIncidentModalOpen: (open: boolean) => void;
+  setReviewIncidentsOpen: (open: boolean) => void;
 
   // Tube Assembly Management Actions
   addTube: (profile?: ProfileType) => void;
@@ -160,7 +219,7 @@ export interface CadState {
   updateActiveTubeTransform: (params: Partial<{ position: [number, number, number]; rotation: [number, number, number] }>) => void;
 
   setProfileType: (type: ProfileType) => void;
-  setTubeDimensions: (params: Partial<Pick<CadState, 'length' | 'outerRadius' | 'wallThickness' | 'rectWidth' | 'rectHeight'>>) => void;
+  setTubeDimensions: (params: Partial<Pick<CadState, 'length' | 'outerRadius' | 'wallThickness' | 'rectWidth' | 'rectHeight' | 'cornerRadius' | 'weldSeamAngle'>>) => void;
 
   addCutFeature: (type?: CutType) => void;
   updateCutFeature: (id: string, params: Partial<CutFeature>) => void;
@@ -226,6 +285,8 @@ const INITIAL_TUBE: TubeItem = {
   wallThickness: 3.5,
   rectWidth: 80,
   rectHeight: 60,
+  cornerRadius: 3.0,
+  weldSeamAngle: 0,
   position: [0, 0, 0],
   rotation: [0, 0, 0],
   cuts: INITIAL_CUTS,
@@ -243,6 +304,8 @@ const DEFAULT_STATE = {
   wallThickness: INITIAL_TUBE.wallThickness,
   rectWidth: INITIAL_TUBE.rectWidth,
   rectHeight: INITIAL_TUBE.rectHeight,
+  cornerRadius: INITIAL_TUBE.cornerRadius,
+  weldSeamAngle: INITIAL_TUBE.weldSeamAngle,
   cuts: INITIAL_TUBE.cuts,
   selectedCutId: INITIAL_TUBE.selectedCutId,
   materialId: INITIAL_TUBE.materialId,
@@ -259,10 +322,17 @@ const DEFAULT_STATE = {
 
   isLeftSidebarOpen: true,
   isRightSidebarOpen: true,
+  dimensionUnit: 'mm' as const,
   designLocked: false,
   batchQuantity: 25,
   laserSpeedMultiplier: 1,
   isGCodeModalOpen: false,
+
+  workflowStatus: 'DRAFT' as ProjectWorkflowStatus,
+  workflowNotes: 'Initial CAD draft created by Engineer.',
+  incidents: [] as MachineIncident[],
+  isIncidentModalOpen: false,
+  isReviewIncidentsOpen: false,
 };
 
 const getSnapshot = (state: CadState): HistorySnapshot => ({
@@ -287,6 +357,8 @@ const updateActiveTubeInList = (state: CadState, updater: (active: TubeItem) => 
     wallThickness: updatedActive.wallThickness,
     rectWidth: updatedActive.rectWidth,
     rectHeight: updatedActive.rectHeight,
+    cornerRadius: updatedActive.cornerRadius ?? 3.0,
+    weldSeamAngle: updatedActive.weldSeamAngle ?? 0,
     cuts: updatedActive.cuts,
     selectedCutId: updatedActive.selectedCutId,
     materialId: updatedActive.materialId,
@@ -297,6 +369,7 @@ export const useCadStore = create<CadState>((set, get) => ({
   ...DEFAULT_STATE,
 
   addTube: (profile = 'round') => {
+    if (isMutationBlocked(get())) return;
     const current = get();
     const newId = `tube-${Date.now()}`;
     const nextOffset = current.tubes.length * 1.5;
@@ -310,6 +383,8 @@ export const useCadStore = create<CadState>((set, get) => ({
       wallThickness: 3.5,
       rectWidth: 80,
       rectHeight: 60,
+      cornerRadius: 3.0,
+      weldSeamAngle: 0,
       position: [0, nextOffset, 0],
       rotation: [0, 0, 0],
       cuts: [],
@@ -326,6 +401,8 @@ export const useCadStore = create<CadState>((set, get) => ({
       wallThickness: newTube.wallThickness,
       rectWidth: newTube.rectWidth,
       rectHeight: newTube.rectHeight,
+      cornerRadius: newTube.cornerRadius,
+      weldSeamAngle: newTube.weldSeamAngle,
       cuts: newTube.cuts,
       selectedCutId: null,
       materialId: newTube.materialId,
@@ -347,6 +424,8 @@ export const useCadStore = create<CadState>((set, get) => ({
       wallThickness: target.wallThickness,
       rectWidth: target.rectWidth,
       rectHeight: target.rectHeight,
+      cornerRadius: target.cornerRadius ?? 3.0,
+      weldSeamAngle: target.weldSeamAngle ?? 0,
       cuts: target.cuts,
       selectedCutId: target.selectedCutId,
       materialId: target.materialId,
@@ -354,6 +433,7 @@ export const useCadStore = create<CadState>((set, get) => ({
   },
 
   deleteTube: (id) => {
+    if (isMutationBlocked(get())) return;
     const current = get();
     if (current.tubes.length <= 1) return; // Keep at least 1 tube
 
@@ -369,6 +449,8 @@ export const useCadStore = create<CadState>((set, get) => ({
       wallThickness: nextActive.wallThickness,
       rectWidth: nextActive.rectWidth,
       rectHeight: nextActive.rectHeight,
+      cornerRadius: nextActive.cornerRadius ?? 3.0,
+      weldSeamAngle: nextActive.weldSeamAngle ?? 0,
       cuts: nextActive.cuts,
       selectedCutId: nextActive.selectedCutId,
       materialId: nextActive.materialId,
@@ -378,6 +460,7 @@ export const useCadStore = create<CadState>((set, get) => ({
   },
 
   duplicateTube: (id) => {
+    if (isMutationBlocked(get())) return;
     const current = get();
     const target = current.tubes.find((t) => t.id === id);
     if (!target) return;
@@ -399,6 +482,8 @@ export const useCadStore = create<CadState>((set, get) => ({
       wallThickness: duplicate.wallThickness,
       rectWidth: duplicate.rectWidth,
       rectHeight: duplicate.rectHeight,
+      cornerRadius: duplicate.cornerRadius ?? 3.0,
+      weldSeamAngle: duplicate.weldSeamAngle ?? 0,
       cuts: duplicate.cuts,
       selectedCutId: duplicate.selectedCutId,
       materialId: duplicate.materialId,
@@ -408,22 +493,26 @@ export const useCadStore = create<CadState>((set, get) => ({
   },
 
   updateActiveTubeTransform: (params) => {
+    if (isMutationBlocked(get())) return;
     set((state) => updateActiveTubeInList(state, (active) => ({ ...active, ...params })));
   },
 
   setProfileType: (profileType) => {
+    if (isMutationBlocked(get())) return;
     const current = get();
     set((state) => updateActiveTubeInList(state, () => ({ profileType })));
     set((state) => ({ undoStack: [...current.undoStack, getSnapshot(current)], redoStack: [] }));
   },
 
   setTubeDimensions: (params) => {
+    if (isMutationBlocked(get())) return;
     const current = get();
     set((state) => updateActiveTubeInList(state, (active) => ({ ...active, ...params })));
     set((state) => ({ undoStack: [...current.undoStack, getSnapshot(current)], redoStack: [] }));
   },
 
   addCutFeature: (type = 'hole') => {
+    if (isMutationBlocked(get())) return;
     const current = get();
     const activeTube = current.tubes.find((t) => t.id === current.activeTubeId);
     if (!activeTube) return;
@@ -454,6 +543,7 @@ export const useCadStore = create<CadState>((set, get) => ({
   },
 
   updateCutFeature: (id, params) => {
+    if (isMutationBlocked(get())) return;
     const current = get();
     set((state) =>
       updateActiveTubeInList(state, (active) => ({
@@ -464,6 +554,7 @@ export const useCadStore = create<CadState>((set, get) => ({
   },
 
   deleteCutFeature: (id) => {
+    if (isMutationBlocked(get())) return;
     const current = get();
     set((state) =>
       updateActiveTubeInList(state, (active) => {
@@ -478,6 +569,7 @@ export const useCadStore = create<CadState>((set, get) => ({
   },
 
   toggleCutFeature: (id) => {
+    if (isMutationBlocked(get())) return;
     const current = get();
     set((state) =>
       updateActiveTubeInList(state, (active) => ({
@@ -492,6 +584,7 @@ export const useCadStore = create<CadState>((set, get) => ({
   },
 
   duplicateCutFeature: (id) => {
+    if (isMutationBlocked(get())) return;
     const current = get();
     const activeTube = current.tubes.find((t) => t.id === current.activeTubeId);
     if (!activeTube) return;
@@ -517,6 +610,7 @@ export const useCadStore = create<CadState>((set, get) => ({
   },
 
   setMaterialId: (materialId) => {
+    if (isMutationBlocked(get())) return;
     set((state) => updateActiveTubeInList(state, () => ({ materialId })));
   },
 
@@ -526,9 +620,13 @@ export const useCadStore = create<CadState>((set, get) => ({
 
   toggleSetting: (key) => set((state) => ({ [key]: !state[key] })),
 
-  resetDefault: () => set(DEFAULT_STATE),
+  resetDefault: () => {
+    if (useAuthStore.getState().user?.role === 'ROLE_OPERATOR') return;
+    set(DEFAULT_STATE);
+  },
 
   undo: () => {
+    if (useAuthStore.getState().user?.role === 'ROLE_OPERATOR') return;
     const current = get();
     if (current.undoStack.length === 0) return;
 
@@ -544,6 +642,8 @@ export const useCadStore = create<CadState>((set, get) => ({
       wallThickness: activeTube.wallThickness,
       rectWidth: activeTube.rectWidth,
       rectHeight: activeTube.rectHeight,
+      cornerRadius: activeTube.cornerRadius ?? 3.0,
+      weldSeamAngle: activeTube.weldSeamAngle ?? 0,
       cuts: activeTube.cuts,
       selectedCutId: activeTube.selectedCutId,
       materialId: activeTube.materialId,
@@ -553,6 +653,7 @@ export const useCadStore = create<CadState>((set, get) => ({
   },
 
   redo: () => {
+    if (useAuthStore.getState().user?.role === 'ROLE_OPERATOR') return;
     const current = get();
     if (current.redoStack.length === 0) return;
 
@@ -568,6 +669,8 @@ export const useCadStore = create<CadState>((set, get) => ({
       wallThickness: activeTube.wallThickness,
       rectWidth: activeTube.rectWidth,
       rectHeight: activeTube.rectHeight,
+      cornerRadius: activeTube.cornerRadius ?? 3.0,
+      weldSeamAngle: activeTube.weldSeamAngle ?? 0,
       cuts: activeTube.cuts,
       selectedCutId: activeTube.selectedCutId,
       materialId: activeTube.materialId,
@@ -580,8 +683,75 @@ export const useCadStore = create<CadState>((set, get) => ({
   toggleRightSidebar: () => set((s) => ({ isRightSidebarOpen: !s.isRightSidebarOpen })),
   setLeftSidebarOpen: (open: boolean) => set({ isLeftSidebarOpen: open }),
   setRightSidebarOpen: (open: boolean) => set({ isRightSidebarOpen: open }),
+  setDimensionUnit: (dimensionUnit: 'mm' | 'cm') => set({ dimensionUnit }),
   toggleDesignLock: () => set((s) => ({ designLocked: !s.designLocked })),
   setBatchQuantity: (qty: number) => set({ batchQuantity: Math.max(1, qty) }),
   setLaserSpeedMultiplier: (speed: number) => set({ laserSpeedMultiplier: speed }),
   setGCodeModalOpen: (open: boolean) => set({ isGCodeModalOpen: open }),
+
+  setWorkflowStatus: (workflowStatus: ProjectWorkflowStatus, notes?: string) =>
+    set({
+      workflowStatus,
+      workflowNotes: notes !== undefined ? notes : get().workflowNotes,
+    }),
+
+  submitForApproval: () =>
+    set({
+      workflowStatus: 'PENDING_APPROVAL',
+      workflowNotes: 'Submitted by CAD Engineer for Plant Admin review & production sign-off.',
+    }),
+
+  approveProject: (notes = 'Approved by Plant Admin for CNC Laser Production.') =>
+    set({
+      workflowStatus: 'APPROVED',
+      workflowNotes: notes,
+    }),
+
+  rejectProject: (reason: string) =>
+    set({
+      workflowStatus: 'REJECTED',
+      workflowNotes: reason || 'Revision requested by Plant Admin.',
+    }),
+
+  startProduction: () =>
+    set({
+      workflowStatus: 'IN_PRODUCTION',
+      workflowNotes: 'Loaded into CNC rotary fiber laser workstation.',
+    }),
+
+  reportMachineIncident: (incident) => {
+    const newIncident: MachineIncident = {
+      ...incident,
+      id: `inc-${Date.now()}`,
+      timestamp: new Date().toISOString(),
+      resolved: false,
+    };
+    set((s) => ({
+      workflowStatus: 'ERROR_REPORTED',
+      workflowNotes: `[INCIDENT] ${incident.title}: ${incident.details}`,
+      incidents: [newIncident, ...s.incidents],
+      isIncidentModalOpen: false,
+    }));
+  },
+
+  resolveIncident: (incidentId: string, resolutionNote?: string) => {
+    set((s) => {
+      const updated = s.incidents.map((inc) =>
+        inc.id === incidentId
+          ? { ...inc, resolved: true, resolutionNote: resolutionNote || 'Resolved by CAD Engineer' }
+          : inc
+      );
+      const hasUnresolved = updated.some((inc) => !inc.resolved);
+      return {
+        incidents: updated,
+        workflowStatus: hasUnresolved ? 'ERROR_REPORTED' : 'DRAFT',
+        workflowNotes: hasUnresolved
+          ? s.workflowNotes
+          : 'All reported shop incidents resolved by CAD Engineer. Ready for re-submission.',
+      };
+    });
+  },
+
+  setIncidentModalOpen: (open: boolean) => set({ isIncidentModalOpen: open }),
+  setReviewIncidentsOpen: (open: boolean) => set({ isReviewIncidentsOpen: open }),
 }));

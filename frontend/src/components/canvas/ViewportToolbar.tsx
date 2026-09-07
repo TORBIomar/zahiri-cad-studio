@@ -48,7 +48,7 @@ export const ViewportToolbar: React.FC<ViewportToolbarProps> = ({ onOpenShortcut
   };
 
   return (
-    <div className="absolute top-3 right-3 z-20 pointer-events-auto flex items-center gap-1.5 transition-all">
+    <div className="absolute top-3 right-3 z-30 pointer-events-auto flex items-center gap-1.5 transition-all">
       {/* View Presets Bar */}
       <div className="flex items-center glass-hud rounded-lg p-1 border border-zinc-800/90 shadow-xl text-xs">
         {(['iso', 'top', 'front', 'right'] as CameraPreset[]).map((preset) => (

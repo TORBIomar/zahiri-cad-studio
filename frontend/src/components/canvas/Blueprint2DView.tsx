@@ -10,6 +10,10 @@ export const Blueprint2DView: React.FC = () => {
     outerRadius,
     profileType,
     rectWidth,
+    rectHeight,
+    cornerRadius,
+    weldSeamAngle,
+    dimensionUnit,
     cuts,
     selectedCutId,
     selectCutFeature,
@@ -19,8 +23,18 @@ export const Blueprint2DView: React.FC = () => {
   const [zoom, setZoom] = useState(1);
   const material = MATERIALS[materialId];
 
-  const outerDiameter = profileType === 'round' ? outerRadius * 2 : rectWidth;
-  const circumference = Math.PI * outerDiameter;
+  const unitDiv = dimensionUnit === 'cm' ? 10 : 1;
+  const unitLabel = dimensionUnit;
+
+  const circumference = useMemo(() => {
+    if (profileType === 'round') {
+      return Math.PI * (outerRadius * 2);
+    } else if (profileType === 'square') {
+      return 4 * (outerRadius * 2);
+    } else {
+      return 2 * (rectWidth + rectHeight);
+    }
+  }, [profileType, outerRadius, rectWidth, rectHeight]);
 
   const svgWidth = 1000;
   const marginX = 80;
@@ -29,9 +43,40 @@ export const Blueprint2DView: React.FC = () => {
 
   const scaleX = printableWidth / length;
   const sheetHeightPx = circumference * scaleX;
+  const scaleY = sheetHeightPx / circumference;
   const svgHeight = Math.max(450, sheetHeightPx + marginY * 2);
 
   const enabledCuts = useMemo(() => cuts.filter((c) => c.enabled), [cuts]);
+
+  // Specific face sections and fold lines for box profiles
+  const foldLines = useMemo(() => {
+    if (profileType === 'square') {
+      const side = outerRadius * 2;
+      const sideDisp = (side / unitDiv).toFixed(dimensionUnit === 'cm' ? 1 : 0);
+      const crDisp = (cornerRadius / unitDiv).toFixed(1);
+      return [
+        { yMm: side, label: `BEND 1 (90°) • R=${crDisp}${unitLabel}`, face: `FACE 1 [Top: ${sideDisp}${unitLabel}]` },
+        { yMm: side * 2, label: `BEND 2 (180°) • R=${crDisp}${unitLabel}`, face: `FACE 2 [Right: ${sideDisp}${unitLabel}]` },
+        { yMm: side * 3, label: `BEND 3 (270°) • R=${crDisp}${unitLabel}`, face: `FACE 3 [Bottom: ${sideDisp}${unitLabel}]` },
+      ];
+    } else if (profileType === 'rectangular') {
+      const wDisp = (rectWidth / unitDiv).toFixed(dimensionUnit === 'cm' ? 1 : 0);
+      const hDisp = (rectHeight / unitDiv).toFixed(dimensionUnit === 'cm' ? 1 : 0);
+      const crDisp = (cornerRadius / unitDiv).toFixed(1);
+      return [
+        { yMm: rectWidth, label: `BEND 1 (W→H) • R=${crDisp}${unitLabel}`, face: `FACE 1 [Top: ${wDisp}${unitLabel}]` },
+        { yMm: rectWidth + rectHeight, label: `BEND 2 (H→W) • R=${crDisp}${unitLabel}`, face: `FACE 2 [Right: ${hDisp}${unitLabel}]` },
+        { yMm: 2 * rectWidth + rectHeight, label: `BEND 3 (W→H) • R=${crDisp}${unitLabel}`, face: `FACE 3 [Bottom: ${wDisp}${unitLabel}]` },
+      ];
+    }
+    return [];
+  }, [profileType, outerRadius, rectWidth, rectHeight, cornerRadius, unitDiv, unitLabel, dimensionUnit]);
+
+  const patternBadge = profileType === 'round'
+    ? 'DIN 6935 CYLINDER UNROLL'
+    : profileType === 'square'
+    ? 'DIN 6935 4-FACE BOX PATTERN'
+    : 'DIN 6935 RHS FLANGED PATTERN';
 
   return (
     <div className="relative w-full h-full bg-slate-950 flex flex-col select-none overflow-hidden cad-grid-pattern">
@@ -42,14 +87,14 @@ export const Blueprint2DView: React.FC = () => {
             {t('blueprint.header')}
           </span>
           <span className="bg-cyan-500/20 text-cyan-300 font-mono text-[10px] px-1.5 py-0.5 rounded border border-cyan-500/30">
-            DIN 6935 FLAT PATTERN
+            {patternBadge}
           </span>
         </div>
 
         <div className="flex items-center gap-3 text-[11px] font-mono">
           <div className="text-slate-400">
-            {t('blueprint.sheet')}: <span className="text-amber-400 font-bold">{length}mm</span> ×{' '}
-            <span className="text-cyan-400 font-bold">{circumference.toFixed(1)}mm</span>
+            {t('blueprint.sheet')}: <span className="text-amber-400 font-bold">{(length / unitDiv).toFixed(dimensionUnit === 'cm' ? 1 : 0)}{unitLabel}</span> ×{' '}
+            <span className="text-cyan-400 font-bold">{(circumference / unitDiv).toFixed(1)}{unitLabel}</span>
           </div>
 
           <div className="flex items-center gap-1 bg-slate-950 px-2 py-0.5 rounded border border-slate-800">
@@ -108,18 +153,66 @@ export const Blueprint2DView: React.FC = () => {
                 strokeWidth="2"
               />
 
-              <line
-                x1={0}
-                y1={sheetHeightPx / 2}
-                x2={printableWidth}
-                y2={sheetHeightPx / 2}
-                stroke="#f59e0b"
-                strokeWidth="1"
-                strokeDasharray="6,4"
-              />
-              <text x={printableWidth + 6} y={sheetHeightPx / 2 + 4} fill="#f59e0b" fontSize="9">
-                CL (180°)
-              </text>
+              {/* Centerline or Profile-Specific Bend Lines */}
+              {profileType === 'round' ? (
+                <>
+                  <line
+                    x1={0}
+                    y1={sheetHeightPx / 2}
+                    x2={printableWidth}
+                    y2={sheetHeightPx / 2}
+                    stroke="#f59e0b"
+                    strokeWidth="1"
+                    strokeDasharray="6,4"
+                  />
+                  <text x={printableWidth + 6} y={sheetHeightPx / 2 + 4} fill="#f59e0b" fontSize="9">
+                    CL (180°)
+                  </text>
+
+                  {/* Weld Seam Line on Round Tube */}
+                  <line
+                    x1={0}
+                    y1={((weldSeamAngle ?? 0) / 360) * sheetHeightPx}
+                    x2={printableWidth}
+                    y2={((weldSeamAngle ?? 0) / 360) * sheetHeightPx}
+                    stroke="#fbbf24"
+                    strokeWidth="1.5"
+                    strokeDasharray="4,3"
+                  />
+                  <text
+                    x={printableWidth + 6}
+                    y={((weldSeamAngle ?? 0) / 360) * sheetHeightPx + 3}
+                    fill="#fbbf24"
+                    fontSize="9"
+                    fontWeight="bold"
+                  >
+                    WELD SEAM ({weldSeamAngle ?? 0}°)
+                  </text>
+                </>
+              ) : (
+                foldLines.map((fold, idx) => {
+                  const yPx = fold.yMm * scaleY;
+                  return (
+                    <g key={`fold-${idx}`}>
+                      <line
+                        x1={0}
+                        y1={yPx}
+                        x2={printableWidth}
+                        y2={yPx}
+                        stroke="#a855f7"
+                        strokeWidth="1.2"
+                        strokeDasharray="5,4"
+                      />
+                      <text x={printableWidth + 6} y={yPx + 3} fill="#c084fc" fontSize="8.5" fontWeight="bold">
+                        {fold.label}
+                      </text>
+                      <text x={12} y={yPx - 6} fill="#94a3b8" fontSize="8" fontStyle="italic">
+                        {fold.face}
+                      </text>
+                    </g>
+                  );
+                })
+              )}
 
               <text x={-25} y={12} fill="#38bdf8" fontSize="9">
                 0°
@@ -140,7 +233,7 @@ export const Blueprint2DView: React.FC = () => {
                   fontWeight="bold"
                   fontSize="11"
                 >
-                  {t('blueprint.length')}: {length} mm
+                  {t('blueprint.length')}: {(length / unitDiv).toFixed(dimensionUnit === 'cm' ? 1 : 0)} {unitLabel}
                 </text>
               </g>
 
@@ -157,7 +250,7 @@ export const Blueprint2DView: React.FC = () => {
                   fontWeight="bold"
                   fontSize="11"
                 >
-                  {t('blueprint.circumference')}: {circumference.toFixed(1)} mm
+                  {t('blueprint.circumference')}: {(circumference / unitDiv).toFixed(1)} {unitLabel}
                 </text>
               </g>
 

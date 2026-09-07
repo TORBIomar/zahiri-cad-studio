@@ -31,22 +31,54 @@ const SingleTubeMesh: React.FC<SingleTubeMeshProps> = ({ tube, isActive }) => {
       const h = (tube.profileType === 'square' ? tube.outerRadius * 2 : tube.rectHeight) / 100;
       const hw = w / 2;
       const hh = h / 2;
+      const crRaw = (tube.cornerRadius ?? 3) / 100;
+      const cr = Math.min(crRaw, hw - 0.005, hh - 0.005);
 
-      shape.moveTo(-hw, -hh);
-      shape.lineTo(hw, -hh);
-      shape.lineTo(hw, hh);
-      shape.lineTo(-hw, hh);
-      shape.closePath();
+      if (cr > 0.002) {
+        // Outer rounded contour
+        shape.moveTo(-hw + cr, -hh);
+        shape.lineTo(hw - cr, -hh);
+        shape.quadraticCurveTo(hw, -hh, hw, -hh + cr);
+        shape.lineTo(hw, hh - cr);
+        shape.quadraticCurveTo(hw, hh, hw - cr, hh);
+        shape.lineTo(-hw + cr, hh);
+        shape.quadraticCurveTo(-hw, hh, -hw, hh - cr);
+        shape.lineTo(-hw, -hh + cr);
+        shape.quadraticCurveTo(-hw, -hh, -hw + cr, -hh);
 
-      const hwIn = Math.max(0.01, hw - thickness);
-      const hhIn = Math.max(0.01, hh - thickness);
-      const holePath = new THREE.Path();
-      holePath.moveTo(-hwIn, -hwIn);
-      holePath.lineTo(-hwIn, hhIn);
-      holePath.lineTo(hwIn, hhIn);
-      holePath.lineTo(hwIn, -hwIn);
-      holePath.closePath();
-      shape.holes.push(holePath);
+        // Inner hollow contour
+        const hwIn = Math.max(0.005, hw - thickness);
+        const hhIn = Math.max(0.005, hh - thickness);
+        const innerCr = Math.max(0.001, cr - thickness);
+        const holePath = new THREE.Path();
+        holePath.moveTo(-hwIn + innerCr, -hhIn);
+        holePath.lineTo(hwIn - innerCr, -hhIn);
+        holePath.quadraticCurveTo(hwIn, -hhIn, hwIn, -hhIn + innerCr);
+        holePath.lineTo(hwIn, hhIn - innerCr);
+        holePath.quadraticCurveTo(hwIn, hhIn, hwIn - innerCr, hhIn);
+        holePath.lineTo(-hwIn + innerCr, hhIn);
+        holePath.quadraticCurveTo(-hwIn, hhIn, -hwIn, hhIn - innerCr);
+        holePath.lineTo(-hwIn, -hhIn + innerCr);
+        holePath.quadraticCurveTo(-hwIn, -hhIn, -hwIn + innerCr, -hhIn);
+        holePath.closePath();
+        shape.holes.push(holePath);
+      } else {
+        shape.moveTo(-hw, -hh);
+        shape.lineTo(hw, -hh);
+        shape.lineTo(hw, hh);
+        shape.lineTo(-hw, hh);
+        shape.closePath();
+
+        const hwIn = Math.max(0.01, hw - thickness);
+        const hhIn = Math.max(0.01, hh - thickness);
+        const holePath = new THREE.Path();
+        holePath.moveTo(-hwIn, -hwIn);
+        holePath.lineTo(-hwIn, hhIn);
+        holePath.lineTo(hwIn, hhIn);
+        holePath.lineTo(hwIn, -hwIn);
+        holePath.closePath();
+        shape.holes.push(holePath);
+      }
     }
 
     const extrudeSettings: THREE.ExtrudeGeometryOptions = {
@@ -64,7 +96,7 @@ const SingleTubeMesh: React.FC<SingleTubeMeshProps> = ({ tube, isActive }) => {
     geom.computeVertexNormals();
 
     return geom;
-  }, [tube.profileType, tube.length, tube.outerRadius, tube.wallThickness, tube.rectWidth, tube.rectHeight]);
+  }, [tube.profileType, tube.length, tube.outerRadius, tube.wallThickness, tube.rectWidth, tube.rectHeight, tube.cornerRadius]);
 
   const lengthInCanvas = tube.length / 100;
   const tubeRadiusInCanvas = tube.outerRadius / 100;
@@ -195,6 +227,21 @@ const SingleTubeMesh: React.FC<SingleTubeMeshProps> = ({ tube, isActive }) => {
           </group>
         );
       })}
+
+      {/* Weld Seam Visual Indicator for Round Tubes */}
+      {tube.profileType === 'round' && (
+        (() => {
+          const seamAngleRad = ((tube.weldSeamAngle ?? 0) * Math.PI) / 180;
+          const seamX = Math.sin(seamAngleRad) * (tubeRadiusInCanvas + 0.001);
+          const seamY = Math.cos(seamAngleRad) * (tubeRadiusInCanvas + 0.001);
+          return (
+            <mesh position={[seamX, seamY, 0]} rotation={[0, 0, -seamAngleRad]}>
+              <boxGeometry args={[0.004, 0.003, lengthInCanvas * 0.99]} />
+              <meshStandardMaterial color="#f59e0b" metalness={0.9} roughness={0.3} emissive="#f59e0b" emissiveIntensity={0.25} />
+            </mesh>
+          );
+        })()
+      )}
 
       {/* Tube Label & Active Halo */}
       {showDimensions && (

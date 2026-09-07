@@ -13,7 +13,7 @@ import {
 } from 'lucide-react';
 
 export const UserProfileMenu: React.FC = () => {
-  const { user, isGuest, logout, setAuthModalOpen, backendConnected } = useAuthStore();
+  const { user, isGuest, logout, setAuthModalOpen, setApprovalModalOpen, pendingUsers, backendConnected } = useAuthStore();
   const [isOpen, setIsOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
 
@@ -142,6 +142,26 @@ export const UserProfileMenu: React.FC = () => {
 
           {/* Actions */}
           <div className="pt-2 flex flex-col gap-1">
+            {user.role === 'ROLE_ADMIN' && (
+              <button
+                onClick={() => {
+                  setIsOpen(false);
+                  setApprovalModalOpen(true);
+                }}
+                className="w-full py-1.5 px-2 hover:bg-zinc-800 rounded text-left text-[11px] text-zinc-200 hover:text-white flex items-center justify-between transition group"
+              >
+                <div className="flex items-center gap-2">
+                  <ShieldCheck className="w-3.5 h-3.5 text-emerald-400 group-hover:scale-110 transition" />
+                  <span className="font-semibold text-emerald-300">Approbations Usine</span>
+                </div>
+                {pendingUsers.length > 0 && (
+                  <span className="px-1.5 py-0.2 rounded-full text-[9px] font-mono bg-amber-500 text-zinc-950 font-black">
+                    {pendingUsers.length}
+                  </span>
+                )}
+              </button>
+            )}
+
             <button
               onClick={() => {
                 setIsOpen(false);

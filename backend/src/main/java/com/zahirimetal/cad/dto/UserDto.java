@@ -18,5 +18,6 @@ public class UserDto {
     private String fullName;
     private Role role;
     private String company;
+    private Boolean approved;
     private LocalDateTime createdAt;
 }

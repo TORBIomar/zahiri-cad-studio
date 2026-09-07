@@ -36,6 +36,12 @@ public class AuthServiceImpl implements AuthService {
         }
 
         Role assignedRole = request.getRole() != null ? request.getRole() : Role.ROLE_ENGINEER;
+        if (assignedRole == Role.ROLE_ADMIN) {
+            throw new IllegalArgumentException("L'inscription en tant qu'Administrateur Usine est interdite.");
+        }
+
+        // CAD Engineers and CNC Operators require Admin approval before accessing
+        boolean isApproved = false;
 
         User user = User.builder()
                 .email(normalizedEmail)
@@ -43,12 +49,13 @@ public class AuthServiceImpl implements AuthService {
                 .fullName(request.getFullName().trim())
                 .role(assignedRole)
                 .company(request.getCompany() != null ? request.getCompany().trim() : "Zahiri Metal")
+                .approved(isApproved)
                 .build();
 
         User savedUser = userRepository.save(user);
         String token = jwtService.generateToken(savedUser);
 
-        log.info("Registered new user: {} with role: {}", savedUser.getEmail(), savedUser.getRole());
+        log.info("Registered new user in MySQL: {} with role: {} (approved: {})", savedUser.getEmail(), savedUser.getRole(), savedUser.getApproved());
 
         return AuthResponseDto.builder()
                 .token(token)
@@ -58,6 +65,7 @@ public class AuthServiceImpl implements AuthService {
                 .fullName(savedUser.getFullName())
                 .role(savedUser.getRole())
                 .company(savedUser.getCompany())
+                .approved(savedUser.getApproved())
                 .build();
     }
 
@@ -73,6 +81,10 @@ public class AuthServiceImpl implements AuthService {
             throw new IllegalArgumentException("Invalid email or password.");
         }
 
+        if (user.getApproved() != null && !user.getApproved()) {
+            throw new IllegalArgumentException("Accès refusé : Votre compte est en attente d'approbation par l'Administrateur Usine.");
+        }
+
         String token = jwtService.generateToken(user);
         log.info("User logged in successfully: {}", user.getEmail());
 
@@ -84,6 +96,7 @@ public class AuthServiceImpl implements AuthService {
                 .fullName(user.getFullName())
                 .role(user.getRole())
                 .company(user.getCompany())
+                .approved(user.getApproved())
                 .build();
     }
 
@@ -96,6 +109,7 @@ public class AuthServiceImpl implements AuthService {
                 .fullName(user.getFullName())
                 .role(user.getRole())
                 .company(user.getCompany())
+                .approved(user.getApproved())
                 .createdAt(user.getCreatedAt())
                 .build();
     }
@@ -105,5 +119,31 @@ public class AuthServiceImpl implements AuthService {
     public User getUserById(UUID id) {
         return userRepository.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("User not found with ID: " + id));
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public java.util.List<UserDto> getAllUsers() {
+        return userRepository.findAll().stream()
+                .map(this::getCurrentUserProfile)
+                .toList();
+    }
+
+    @Override
+    @Transactional
+    public UserDto approveUser(UUID id) {
+        User user = userRepository.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException("User not found with ID: " + id));
+        user.setApproved(true);
+        User saved = userRepository.save(user);
+        log.info("User approved by Plant Admin: {}", saved.getEmail());
+        return getCurrentUserProfile(saved);
+    }
+
+    @Override
+    @Transactional
+    public void deleteUser(UUID id) {
+        userRepository.deleteById(id);
+        log.info("User deleted from MySQL: {}", id);
     }
 }

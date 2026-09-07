@@ -15,6 +15,9 @@ import {
   Scissors,
   ChevronLeft,
   ChevronRight,
+  Cpu,
+  Compass,
+  DollarSign,
 } from 'lucide-react';
 
 export const SidebarReadouts: React.FC = () => {
@@ -27,6 +30,9 @@ export const SidebarReadouts: React.FC = () => {
     wallThickness,
     rectWidth,
     rectHeight,
+    cornerRadius,
+    weldSeamAngle,
+    dimensionUnit,
     cuts,
     materialId,
     laserPowerKW,
@@ -79,14 +85,96 @@ export const SidebarReadouts: React.FC = () => {
     const baseSpeedMPerMin = 4.5 * (laserPowerKW / 3.0) * (materialSpec.cuttingSpeedFactor || 1.0) / (wallThickness / 2.0);
     const cutTimeSec = totalCutPerimeterMm > 0 ? (totalCutPerimeterMm / 1000 / (baseSpeedMPerMin / 60)) + enabledCuts.length * 0.4 : 0;
 
+    // Profile-specific Structural & Section Telemetry
+    let profileStats = {
+      spec: 'EN 10210 / ASTM A53',
+      profileCode: 'CHS (Round Pipe)',
+      momentOfInertiaCm4: '0',
+      sectionModulusCm3: '0',
+      minorMomentOfInertiaCm4: null as string | null,
+      kinematicsType: 'Continuous Rotary Chuck (A-Axis)',
+      laserAdvisory: 'Rotary chuck continuous synchronization',
+    };
+
+    if (profileType === 'round') {
+      const rOCm = outerRadius / 10;
+      const rICm = Math.max(0, rOCm - wallThickness / 10);
+      const J = (Math.PI / 2) * (rOCm ** 4 - rICm ** 4); // Polar moment cm4
+      const I = J / 2; // Bending moment cm4
+      const Wel = rOCm > 0 ? I / rOCm : 0;
+      profileStats = {
+        spec: 'EN 10210 / ASTM A53',
+        profileCode: 'CHS (Circular Hollow Section)',
+        momentOfInertiaCm4: I.toFixed(1),
+        sectionModulusCm3: Wel.toFixed(1),
+        minorMomentOfInertiaCm4: null,
+        kinematicsType: 'Continuous 4-Axis Rotary (A)',
+        laserAdvisory: `Uniform focal standoff; weld bead orientation set to ${weldSeamAngle ?? 0}°`,
+      };
+    } else if (profileType === 'square') {
+      const wCm = (outerRadius * 2) / 10;
+      const tCm = wallThickness / 10;
+      const innerWCm = Math.max(0, wCm - 2 * tCm);
+      const I = (wCm ** 4 - innerWCm ** 4) / 12; // cm4
+      const Wel = wCm > 0 ? I / (wCm / 2) : 0;
+      profileStats = {
+        spec: 'EN 10219 / ASTM A500',
+        profileCode: 'SHS (Square Hollow Section)',
+        momentOfInertiaCm4: I.toFixed(1),
+        sectionModulusCm3: Wel.toFixed(1),
+        minorMomentOfInertiaCm4: null,
+        kinematicsType: '4-Face 90° Rotary Indexing',
+        laserAdvisory: `Corner deceleration active (-18%) for ${(cornerRadius ?? 3)}mm fillets`,
+      };
+    } else {
+      const wCm = rectWidth / 10;
+      const hCm = rectHeight / 10;
+      const tCm = wallThickness / 10;
+      const innerWCm = Math.max(0, wCm - 2 * tCm);
+      const innerHCm = Math.max(0, hCm - 2 * tCm);
+      const Imajor = (wCm * hCm ** 3 - innerWCm * innerHCm ** 3) / 12; // Major axis
+      const Iminor = (hCm * wCm ** 3 - innerHCm * innerWCm ** 3) / 12; // Minor axis
+      const WelMajor = hCm > 0 ? Imajor / (hCm / 2) : 0;
+      const deltaZMm = Math.abs(rectWidth - rectHeight) / 2;
+      profileStats = {
+        spec: 'ISO 12633 / ASTM A500',
+        profileCode: 'RHS (Rectangular Hollow)',
+        momentOfInertiaCm4: Imajor.toFixed(1),
+        sectionModulusCm3: WelMajor.toFixed(1),
+        minorMomentOfInertiaCm4: Iminor.toFixed(1),
+        kinematicsType: 'Dual-Height Capacitive Z-Follow',
+        laserAdvisory: `Dynamic stroke travel ΔZ=${deltaZMm.toFixed(1)}mm between W & H faces`,
+      };
+    }
+
+    // Realistic piece fabrication price estimation (DH)
+    const rawCostPerKgMap: Record<string, number> = {
+      steel_s235: 8.5,
+      steel_304: 21.0,
+      aluminum_6061: 25.0,
+      brass: 38.0,
+      titanium_gr5: 140.0,
+    };
+    const rawCostPerKg = rawCostPerKgMap[materialId] || 9.0;
+    const estMaterialCostDH = massKg * rawCostPerKg;
+    const estMachineCostDH = (cutTimeSec / 60) * 1.6;
+    const estUnitCostDH = Math.max(3, Math.round(estMaterialCostDH + estMachineCostDH + 0.5));
+
+    const crossSectionAreaDisplay = dimensionUnit === 'cm'
+      ? `${crossSectionAreaCm2.toFixed(2)} cm²`
+      : `${(crossSectionAreaCm2 * 100).toFixed(0)} mm²`;
+
     return {
       volumeCm3: volumeCm3.toFixed(1),
       massKg: massKg.toFixed(2),
       crossSectionAreaMm2: (crossSectionAreaCm2 * 100).toFixed(0),
+      crossSectionAreaDisplay,
       totalCutPerimeterMm: totalCutPerimeterMm.toFixed(1),
       cuttingSpeedMPerMin: baseSpeedMPerMin.toFixed(2),
       cutTimeSec: cutTimeSec.toFixed(1),
       activeCutCount: enabledCuts.length,
+      estUnitCostDH,
+      profileStats,
     };
   }, [
     profileType,
@@ -95,8 +183,12 @@ export const SidebarReadouts: React.FC = () => {
     wallThickness,
     rectWidth,
     rectHeight,
+    cornerRadius,
+    weldSeamAngle,
+    dimensionUnit,
     cuts,
     materialSpec,
+    materialId,
     laserPowerKW,
   ]);
 
@@ -192,7 +284,69 @@ export const SidebarReadouts: React.FC = () => {
           </div>
           <div className="flex justify-between items-center text-[10px] text-zinc-400">
             <span>{t('telemetry.crossSection')}:</span>
-            <span className="font-mono text-zinc-200">{telemetry.crossSectionAreaMm2} mm²</span>
+            <span className="font-mono text-zinc-200">{telemetry.crossSectionAreaDisplay}</span>
+          </div>
+
+          <div className="flex justify-between items-center text-[10px] pt-1.5 border-t border-zinc-900">
+            <span className="text-zinc-400 flex items-center gap-1">
+              <DollarSign className="w-3 h-3 text-emerald-400" />
+              <span>Est. Coût Unitaire:</span>
+            </span>
+            <span className="font-mono font-bold text-emerald-400 bg-emerald-500/10 px-1.5 py-0.2 rounded border border-emerald-500/20">
+              ~{telemetry.estUnitCostDH} DH
+            </span>
+          </div>
+        </div>
+
+        {/* Profile-Specific Structural Section Properties */}
+        <div className="bg-zinc-950 p-3 rounded border border-zinc-800 space-y-2.5">
+          <div className="flex items-center justify-between border-b border-zinc-800/80 pb-1.5">
+            <div className="flex items-center gap-1.5">
+              <Cpu className="w-3.5 h-3.5 text-amber-400" />
+              <span className="text-[11px] font-semibold text-zinc-300 uppercase tracking-wider">
+                Section & Kinematics
+              </span>
+            </div>
+            <span className="text-[9px] font-mono px-1.5 py-0.2 bg-zinc-900 border border-zinc-800 text-cyan-400 rounded">
+              {telemetry.profileStats.spec}
+            </span>
+          </div>
+
+          <div className="text-[11px] font-semibold text-zinc-200 flex items-center justify-between">
+            <span>{telemetry.profileStats.profileCode}</span>
+          </div>
+
+          <div className="grid grid-cols-2 gap-2">
+            <div className="bg-zinc-900/80 p-2 rounded border border-zinc-800/60">
+              <span className="text-[9px] text-zinc-400 block">Moment of Inertia (Ix)</span>
+              <span className="text-sm font-bold font-mono text-cyan-300 mt-0.5 block">
+                {telemetry.profileStats.momentOfInertiaCm4} <span className="text-[10px] font-normal text-zinc-500">cm⁴</span>
+              </span>
+            </div>
+
+            <div className="bg-zinc-900/80 p-2 rounded border border-zinc-800/60">
+              <span className="text-[9px] text-zinc-400 block">Section Modulus (Wel)</span>
+              <span className="text-sm font-bold font-mono text-amber-300 mt-0.5 block">
+                {telemetry.profileStats.sectionModulusCm3} <span className="text-[10px] font-normal text-zinc-500">cm³</span>
+              </span>
+            </div>
+          </div>
+
+          {telemetry.profileStats.minorMomentOfInertiaCm4 && (
+            <div className="flex justify-between items-center text-[10px] text-zinc-400 border-t border-zinc-900 pt-1">
+              <span>Minor Axis (Iy):</span>
+              <span className="font-mono text-zinc-200">{telemetry.profileStats.minorMomentOfInertiaCm4} cm⁴</span>
+            </div>
+          )}
+
+          <div className="bg-zinc-900/60 p-2 rounded border border-zinc-800/60 text-[9.5px] space-y-1">
+            <div className="text-zinc-300 font-semibold flex items-center gap-1">
+              <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 inline-block"></span>
+              <span>{telemetry.profileStats.kinematicsType}</span>
+            </div>
+            <div className="text-zinc-400 text-[9px] leading-tight">
+              {telemetry.profileStats.laserAdvisory}
+            </div>
           </div>
         </div>
 

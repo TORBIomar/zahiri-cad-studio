@@ -16,10 +16,32 @@ export const StatusBar: React.FC<StatusBarProps> = ({ onOpenShortcuts }) => {
     materialId,
     length,
     outerRadius,
+    profileType,
+    rectWidth,
+    rectHeight,
+    dimensionUnit,
+    setDimensionUnit,
   } = useCadStore();
 
   const { user, isGuest } = useAuthStore();
   const activeMaterial = MATERIALS[materialId] || MATERIALS.steel_304;
+
+  const unitFactor = dimensionUnit === 'cm' ? 0.1 : 1;
+  const fmt = (valMm: number) => {
+    const v = valMm * unitFactor;
+    return dimensionUnit === 'cm' ? (Number.isInteger(v) ? v.toString() : v.toFixed(1)) : Math.round(v).toString();
+  };
+
+  const getProfileDimText = () => {
+    const lStr = `L=${fmt(length)}${dimensionUnit}`;
+    if (profileType === 'square') {
+      return `DIM: ${lStr} · ${fmt(rectWidth)}x${fmt(rectWidth)}${dimensionUnit}`;
+    }
+    if (profileType === 'rectangular') {
+      return `DIM: ${lStr} · ${fmt(rectWidth)}x${fmt(rectHeight)}${dimensionUnit}`;
+    }
+    return `DIM: ${lStr} · Ø=${fmt(outerRadius * 2)}${dimensionUnit}`;
+  };
 
   const getRoleTag = () => {
     if (isGuest || !user) {
@@ -84,8 +106,38 @@ export const StatusBar: React.FC<StatusBarProps> = ({ onOpenShortcuts }) => {
 
         <div className="h-3 w-px bg-zinc-800" />
 
-        <div className="text-zinc-400 hidden md:flex items-center gap-2">
-          <span>DIM: L={length}mm · Ø={outerRadius * 2}mm</span>
+        {/* Quick Unit Switcher (mm / cm) */}
+        <div className="flex items-center bg-zinc-900 border border-zinc-800 rounded p-0.5 text-[9px]">
+          <button
+            type="button"
+            onClick={() => setDimensionUnit('mm')}
+            className={`px-1.5 py-0.5 rounded font-mono font-semibold transition ${
+              dimensionUnit === 'mm'
+                ? 'bg-amber-500 text-zinc-950 shadow-xs'
+                : 'text-zinc-400 hover:text-zinc-200'
+            }`}
+            title="Unités: Millimètres (mm)"
+          >
+            mm
+          </button>
+          <button
+            type="button"
+            onClick={() => setDimensionUnit('cm')}
+            className={`px-1.5 py-0.5 rounded font-mono font-semibold transition ${
+              dimensionUnit === 'cm'
+                ? 'bg-amber-500 text-zinc-950 shadow-xs'
+                : 'text-zinc-400 hover:text-zinc-200'
+            }`}
+            title="Unités: Centimètres (cm)"
+          >
+            cm
+          </button>
+        </div>
+
+        <div className="h-3 w-px bg-zinc-800" />
+
+        <div className="text-zinc-300 hidden md:flex items-center gap-2">
+          <span>{getProfileDimText()}</span>
         </div>
       </div>
 

@@ -26,4 +26,6 @@ public class AuthResponseDto {
     private Role role;
 
     private String company;
+
+    private Boolean approved;
 }

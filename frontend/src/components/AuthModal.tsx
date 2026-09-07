@@ -16,6 +16,7 @@ import {
   Cpu,
   CheckCircle2,
   AlertCircle,
+  Clock,
 } from 'lucide-react';
 
 export const AuthModal: React.FC = () => {
@@ -42,6 +43,7 @@ export const AuthModal: React.FC = () => {
   const [role, setRole] = useState<UserRole>('ROLE_ENGINEER');
   const [company, setCompany] = useState('Zahiri Metal');
   const [statusNotice, setStatusNotice] = useState<string | null>(null);
+  const [pendingApprovalData, setPendingApprovalData] = useState<{ email: string; fullName: string; role: UserRole } | null>(null);
 
   if (!isAuthModalOpen) {
     return null;
@@ -74,11 +76,15 @@ export const AuthModal: React.FC = () => {
         company,
       });
       if (res.success) {
-        setStatusNotice(res.message);
-        setTimeout(() => {
-          setStatusNotice(null);
-          setAuthModalOpen(false);
-        }, 800);
+        if (res.pendingApproval) {
+          setPendingApprovalData({ email, fullName, role });
+        } else {
+          setStatusNotice(res.message);
+          setTimeout(() => {
+            setStatusNotice(null);
+            setAuthModalOpen(false);
+          }, 800);
+        }
       }
     }
   };
@@ -127,37 +133,86 @@ export const AuthModal: React.FC = () => {
           </button>
         </div>
 
-        {/* Tab Selector */}
-        <div className="flex border-b border-zinc-800 bg-zinc-950/60 p-1">
-          <button
-            type="button"
-            onClick={() => {
-              setTab('login');
-              setError(null);
-            }}
-            className={`flex-1 py-2 text-xs font-semibold rounded-md transition ${
-              tab === 'login'
-                ? 'bg-zinc-800 text-amber-400 shadow-sm border border-zinc-700'
-                : 'text-zinc-400 hover:text-zinc-200'
-            }`}
-          >
-            Sign In
-          </button>
-          <button
-            type="button"
-            onClick={() => {
-              setTab('register');
-              setError(null);
-            }}
-            className={`flex-1 py-2 text-xs font-semibold rounded-md transition ${
-              tab === 'register'
-                ? 'bg-zinc-800 text-amber-400 shadow-sm border border-zinc-700'
-                : 'text-zinc-400 hover:text-zinc-200'
-            }`}
-          >
-            Register Account
-          </button>
-        </div>
+        {pendingApprovalData ? (
+          <div className="p-6 space-y-4 text-center">
+            <div className="mx-auto w-12 h-12 rounded-full bg-amber-500/15 border border-amber-500/30 flex items-center justify-center text-amber-400">
+              <Clock className="w-6 h-6 animate-pulse" />
+            </div>
+
+            <div>
+              <h3 className="text-base font-bold text-zinc-100">Compte créé avec succès !</h3>
+              <p className="text-xs text-amber-400/90 font-medium mt-1">
+                En attente d'approbation par l'Administrateur Usine
+              </p>
+            </div>
+
+            <div className="bg-zinc-950 border border-zinc-800 rounded-lg p-3 text-left space-y-2 text-xs">
+              <div className="flex justify-between border-b border-zinc-800/80 pb-1.5">
+                <span className="text-zinc-500">Utilisateur:</span>
+                <span className="text-zinc-200 font-semibold">{pendingApprovalData.fullName}</span>
+              </div>
+              <div className="flex justify-between border-b border-zinc-800/80 pb-1.5">
+                <span className="text-zinc-500">Email:</span>
+                <span className="text-zinc-200 font-mono">{pendingApprovalData.email}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-zinc-500">Rôle sollicité:</span>
+                <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30">
+                  {pendingApprovalData.role === 'ROLE_ENGINEER' ? 'CAD Engineer' : 'CNC Operator'}
+                </span>
+              </div>
+            </div>
+
+            <p className="text-[11px] text-zinc-400 leading-relaxed">
+              Pour des raisons de conformité et de sécurité industrielle, un administrateur doit valider vos autorisations d'atelier avant votre première session.
+            </p>
+
+            <div className="pt-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setPendingApprovalData(null);
+                  setTab('login');
+                }}
+                className="w-full py-2 bg-zinc-800 hover:bg-zinc-700 text-zinc-200 hover:text-white rounded-md text-xs font-semibold transition"
+              >
+                Retour à la connexion
+              </button>
+            </div>
+          </div>
+        ) : (
+          <>
+            {/* Tab Selector */}
+            <div className="flex border-b border-zinc-800 bg-zinc-950/60 p-1">
+              <button
+                type="button"
+                onClick={() => {
+                  setTab('login');
+                  setError(null);
+                }}
+                className={`flex-1 py-2 text-xs font-semibold rounded-md transition ${
+                  tab === 'login'
+                    ? 'bg-zinc-800 text-amber-400 shadow-sm border border-zinc-700'
+                    : 'text-zinc-400 hover:text-zinc-200'
+                }`}
+              >
+                Sign In
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setTab('register');
+                  setError(null);
+                }}
+                className={`flex-1 py-2 text-xs font-semibold rounded-md transition ${
+                  tab === 'register'
+                    ? 'bg-zinc-800 text-amber-400 shadow-sm border border-zinc-700'
+                    : 'text-zinc-400 hover:text-zinc-200'
+                }`}
+              >
+                Register Account
+              </button>
+            </div>
 
         <div className="p-5 overflow-y-auto max-h-[80vh] space-y-4">
           {/* Quick Demo Access Bar */}
@@ -275,10 +330,15 @@ export const AuthModal: React.FC = () => {
                       >
                         <option value="ROLE_ENGINEER" className="bg-zinc-900">CAD Engineer</option>
                         <option value="ROLE_OPERATOR" className="bg-zinc-900">CNC Operator</option>
-                        <option value="ROLE_ADMIN" className="bg-zinc-900">Plant Admin</option>
                       </select>
                     </div>
                   </div>
+                </div>
+
+                {/* Role Approval Requirement Notice */}
+                <div className="p-2 rounded border text-[11px] flex items-center gap-2 bg-amber-500/10 border-amber-500/30 text-amber-300">
+                  <Clock className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+                  <span><strong>Validation requise:</strong> Pour des raisons de sécurité industrielle, tout compte CAD Engineer ou CNC Operator créé doit être validé par l'Administrateur Usine avant le premier accès.</span>
                 </div>
               </>
             )}
@@ -357,6 +417,8 @@ export const AuthModal: React.FC = () => {
             </p>
           </div>
         </div>
+      </>
+    )}
       </div>
     </div>
   );

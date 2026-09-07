@@ -10,8 +10,17 @@ import {
   Copy,
 } from 'lucide-react';
 
-export const CutFeatureManager: React.FC = () => {
+import { useAuthStore } from '../store/useAuthStore';
+import { useToastStore } from '../store/useToastStore';
+
+interface CutFeatureManagerProps {
+  readOnly?: boolean;
+}
+
+export const CutFeatureManager: React.FC<CutFeatureManagerProps> = ({ readOnly = false }) => {
   const { t } = useTranslation();
+  const { user, isGuest, setAuthModalOpen } = useAuthStore();
+  const { showWarning } = useToastStore();
   const {
     cuts,
     selectedCutId,
@@ -25,6 +34,43 @@ export const CutFeatureManager: React.FC = () => {
     outerRadius,
   } = useCadStore();
 
+  const handleAddHole = () => {
+    if (isGuest || !user) {
+      showWarning(
+        'Connexion Requise',
+        "L'ajout de découpes et perçages laser personnalisés nécessite un compte Ingénieur."
+      );
+      setAuthModalOpen(true);
+      return;
+    }
+    addCutFeature('hole');
+  };
+
+  const handleAddSlot = () => {
+    if (isGuest || !user) {
+      showWarning(
+        'Connexion Requise',
+        "L'ajout de rainures et découpes laser personnalisées nécessite un compte Ingénieur."
+      );
+      setAuthModalOpen(true);
+      return;
+    }
+    addCutFeature('slot');
+  };
+
+  const handleDuplicate = (id: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (isGuest || !user) {
+      showWarning(
+        'Connexion Requise',
+        "La duplication d'usinages nécessite d'être connecté."
+      );
+      setAuthModalOpen(true);
+      return;
+    }
+    duplicateCutFeature(id);
+  };
+
   const selectedCut = cuts.find((c) => c.id === selectedCutId);
 
   return (
@@ -36,25 +82,32 @@ export const CutFeatureManager: React.FC = () => {
           <span className="bg-zinc-800 text-zinc-400 font-mono text-[9px] px-1.5 py-0.2 rounded-full">
             {cuts.length}
           </span>
+          {readOnly && (
+            <span className="text-[9px] text-cyan-400 bg-cyan-500/10 px-1.5 py-0.2 rounded border border-cyan-500/30">
+              Lecture Seule
+            </span>
+          )}
         </div>
 
-        <div className="flex items-center gap-1">
-          <button
-            onClick={() => addCutFeature('hole')}
-            className="bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/30 text-amber-300 px-2 py-0.5 rounded text-[10px] flex items-center gap-1 transition"
-          >
-            <Plus className="w-3 h-3 text-amber-400" />
-            <span>{t('cutList.addHole')}</span>
-          </button>
+        {!readOnly && (
+          <div className="flex items-center gap-1">
+            <button
+              onClick={handleAddHole}
+              className="bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/30 text-amber-300 px-2 py-0.5 rounded text-[10px] flex items-center gap-1 transition active:scale-95"
+            >
+              <Plus className="w-3 h-3 text-amber-400" />
+              <span>{t('cutList.addHole')}</span>
+            </button>
 
-          <button
-            onClick={() => addCutFeature('slot')}
-            className="bg-cyan-500/10 hover:bg-cyan-500/20 border border-cyan-500/30 text-cyan-300 px-2 py-0.5 rounded text-[10px] flex items-center gap-1 transition"
-          >
-            <Plus className="w-3 h-3 text-cyan-400" />
-            <span>{t('cutList.addSlot')}</span>
-          </button>
-        </div>
+            <button
+              onClick={handleAddSlot}
+              className="bg-cyan-500/10 hover:bg-cyan-500/20 border border-cyan-500/30 text-cyan-300 px-2 py-0.5 rounded text-[10px] flex items-center gap-1 transition active:scale-95"
+            >
+              <Plus className="w-3 h-3 text-cyan-400" />
+              <span>{t('cutList.addSlot')}</span>
+            </button>
+          </div>
+        )}
       </div>
 
       <div className="space-y-1.5 max-h-48 overflow-y-auto pr-1">
@@ -77,11 +130,14 @@ export const CutFeatureManager: React.FC = () => {
               >
                 <div className="flex items-center gap-2 overflow-hidden">
                   <button
+                    disabled={readOnly}
                     onClick={(e) => {
                       e.stopPropagation();
-                      toggleCutFeature(cut.id);
+                      if (!readOnly) toggleCutFeature(cut.id);
                     }}
-                    className="text-zinc-500 hover:text-zinc-200 transition"
+                    className={`transition ${
+                      readOnly ? 'cursor-not-allowed opacity-60' : 'text-zinc-500 hover:text-zinc-200'
+                    }`}
                   >
                     {cut.enabled ? (
                       <Eye className="w-3.5 h-3.5 text-amber-400" />
@@ -100,27 +156,36 @@ export const CutFeatureManager: React.FC = () => {
                   </div>
                 </div>
 
-                <div className="flex items-center gap-1">
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      duplicateCutFeature(cut.id);
-                    }}
-                    className="p-1 hover:bg-zinc-800 text-zinc-400 hover:text-zinc-200 rounded transition"
-                  >
-                    <Copy className="w-3 h-3" />
-                  </button>
+                {!readOnly && (
+                  <div className="flex items-center gap-1">
+                    <button
+                      onClick={(e) => handleDuplicate(cut.id, e)}
+                      className="p-1 hover:bg-zinc-800 text-zinc-400 hover:text-zinc-200 rounded transition"
+                      title="Dupliquer Feature"
+                    >
+                      <Copy className="w-3 h-3" />
+                    </button>
 
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      deleteCutFeature(cut.id);
-                    }}
-                    className="p-1 hover:bg-red-500/20 text-zinc-400 hover:text-red-400 rounded transition"
-                  >
-                    <Trash2 className="w-3 h-3" />
-                  </button>
-                </div>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (isGuest || !user) {
+                          showWarning(
+                            'Connexion Requise',
+                            "La suppression d'usinages nécessite d'être connecté."
+                          );
+                          setAuthModalOpen(true);
+                          return;
+                        }
+                        deleteCutFeature(cut.id);
+                      }}
+                      className="p-1 hover:bg-red-500/20 text-zinc-400 hover:text-red-400 rounded transition"
+                      title="Supprimer Feature"
+                    >
+                      <Trash2 className="w-3 h-3" />
+                    </button>
+                  </div>
+                )}
               </div>
             );
           })
@@ -128,7 +193,7 @@ export const CutFeatureManager: React.FC = () => {
       </div>
 
       {selectedCut && (
-        <div className="border-t border-zinc-800/80 pt-2.5 space-y-2.5">
+        <fieldset disabled={readOnly} className="border-t border-zinc-800/80 pt-2.5 space-y-2.5 disabled:opacity-60">
           <div className="flex items-center justify-between text-[11px] font-semibold text-amber-400">
             <span>{t('cutList.editTitle')} ({t(`cutList.cutTypes.${selectedCut.type}`).toUpperCase()})</span>
             <span className="font-mono text-[9px] text-zinc-500">ID: {selectedCut.id}</span>
@@ -138,6 +203,7 @@ export const CutFeatureManager: React.FC = () => {
             {(['hole', 'slot', 'mitre_start', 'mitre_end'] as CutType[]).map((tType) => (
               <button
                 key={tType}
+                disabled={readOnly}
                 onClick={() =>
                   updateCutFeature(selectedCut.id, {
                     type: tType,
@@ -148,7 +214,7 @@ export const CutFeatureManager: React.FC = () => {
                   selectedCut.type === tType
                     ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40'
                     : 'text-zinc-400 hover:text-zinc-200'
-                }`}
+                } ${readOnly ? 'cursor-not-allowed opacity-60' : ''}`}
               >
                 {t(`cutList.cutTypes.${tType}`)}
               </button>
@@ -162,6 +228,7 @@ export const CutFeatureManager: React.FC = () => {
             </div>
             <input
               type="range"
+              disabled={readOnly}
               min={0}
               max={length}
               step={5}
@@ -171,7 +238,9 @@ export const CutFeatureManager: React.FC = () => {
                   positionZ: Number(e.target.value),
                 })
               }
-              className="w-full h-1 bg-zinc-800 rounded appearance-none cursor-pointer accent-red-400"
+              className={`w-full h-1 bg-zinc-800 rounded appearance-none accent-red-400 ${
+                readOnly ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'
+              }`}
             />
           </div>
 
@@ -183,6 +252,7 @@ export const CutFeatureManager: React.FC = () => {
               </div>
               <input
                 type="range"
+                disabled={readOnly}
                 min={5}
                 max={Math.min(80, outerRadius * 1.6)}
                 step={1}
@@ -192,7 +262,9 @@ export const CutFeatureManager: React.FC = () => {
                     radius: Number(e.target.value) / 2,
                   })
                 }
-                className="w-full h-1 bg-zinc-800 rounded appearance-none cursor-pointer accent-amber-400"
+                className={`w-full h-1 bg-zinc-800 rounded appearance-none accent-amber-400 ${
+                  readOnly ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'
+                }`}
               />
             </div>
           )}
@@ -206,6 +278,7 @@ export const CutFeatureManager: React.FC = () => {
                 </div>
                 <input
                   type="range"
+                  disabled={readOnly}
                   min={10}
                   max={200}
                   step={5}
@@ -215,7 +288,9 @@ export const CutFeatureManager: React.FC = () => {
                       slotLength: Number(e.target.value),
                     })
                   }
-                  className="w-full h-1 bg-zinc-800 rounded appearance-none cursor-pointer accent-cyan-400"
+                  className={`w-full h-1 bg-zinc-800 rounded appearance-none accent-cyan-400 ${
+                    readOnly ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'
+                  }`}
                 />
               </div>
 
@@ -226,6 +301,7 @@ export const CutFeatureManager: React.FC = () => {
                 </div>
                 <input
                   type="range"
+                  disabled={readOnly}
                   min={5}
                   max={60}
                   step={1}
@@ -235,7 +311,9 @@ export const CutFeatureManager: React.FC = () => {
                       slotWidth: Number(e.target.value),
                     })
                   }
-                  className="w-full h-1 bg-zinc-800 rounded appearance-none cursor-pointer accent-cyan-400"
+                  className={`w-full h-1 bg-zinc-800 rounded appearance-none accent-cyan-400 ${
+                    readOnly ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'
+                  }`}
                 />
               </div>
             </>
@@ -249,6 +327,7 @@ export const CutFeatureManager: React.FC = () => {
               </div>
               <input
                 type="range"
+                disabled={readOnly}
                 min={15}
                 max={75}
                 step={5}
@@ -258,7 +337,9 @@ export const CutFeatureManager: React.FC = () => {
                     mitreAngle: Number(e.target.value),
                   })
                 }
-                className="w-full h-1 bg-zinc-800 rounded appearance-none cursor-pointer accent-amber-400"
+                className={`w-full h-1 bg-zinc-800 rounded appearance-none accent-amber-400 ${
+                  readOnly ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'
+                }`}
               />
             </div>
           )}
@@ -270,6 +351,7 @@ export const CutFeatureManager: React.FC = () => {
             </div>
             <input
               type="range"
+              disabled={readOnly}
               min={0}
               max={360}
               step={15}
@@ -279,10 +361,12 @@ export const CutFeatureManager: React.FC = () => {
                   polarAngle: Number(e.target.value),
                 })
               }
-              className="w-full h-1 bg-zinc-800 rounded appearance-none cursor-pointer accent-zinc-400"
+              className={`w-full h-1 bg-zinc-800 rounded appearance-none accent-zinc-400 ${
+                readOnly ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'
+              }`}
             />
           </div>
-        </div>
+        </fieldset>
       )}
     </div>
   );
