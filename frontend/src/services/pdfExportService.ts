@@ -252,7 +252,14 @@ export class PdfExportService {
     const amortizedSetupDH = quotation ? Math.max(0.2, 10.0 / bQty) : Math.max(0.2, 10.0 / bQty);
     const uCost = quotation?.unitCost ?? Math.max(5, Math.round(Number(matCost) + Number(machCost) + amortizedSetupDH));
     const discountRate = bQty >= 50 ? 0.88 : bQty >= 20 ? 0.94 : 1.0;
-    const bTotal = quotation?.batchTotal ?? Math.round(uCost * bQty * discountRate).toLocaleString('fr-FR');
+    const computedTotal = Math.round(uCost * bQty * discountRate);
+    const rawTotal = quotation?.batchTotal ?? computedTotal;
+    // Format safely with standard ASCII space (\u0020).
+    // Note: jsPDF default fonts lack Unicode narrow non-breaking space (\u202F) from toLocaleString('fr-FR')
+    // and misencode it as '/' (ASCII 47 = 8239 % 256).
+    const bTotal = typeof rawTotal === 'number'
+      ? rawTotal.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ' ')
+      : String(rawTotal).replace(/[\u202F\u00A0/]/g, ' ').replace(/\s+/g, ' ').trim();
 
     // Quotation Cards
     doc.setFillColor(15, 23, 42);

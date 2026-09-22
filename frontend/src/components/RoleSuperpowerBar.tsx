@@ -132,7 +132,7 @@ export const RoleSuperpowerBar: React.FC<RoleSuperpowerBarProps> = ({ onOpenGCod
       materialCostDH: (materialCost * tierMultiplier).toFixed(1),
       machineCostDH: (machineCost * tierMultiplier).toFixed(1),
       unitCost,
-      batchTotal: batchTotal.toLocaleString('fr-FR'),
+      batchTotal: batchTotal.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ' '),
       discount: batchQuantity >= 20 ? `${tierLabel} + Remise Lot` : tierLabel,
       cutTimeSec: Math.round(cutTimeMin * 60),
     };

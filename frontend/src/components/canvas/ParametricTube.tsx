@@ -245,20 +245,27 @@ const SingleTubeMesh: React.FC<SingleTubeMeshProps> = ({ tube, isActive }) => {
 
       {/* Tube Label & Active Halo */}
       {showDimensions && (
-        <Html position={[0, tubeRadiusInCanvas + 0.25, 0]} center distanceFactor={12} zIndexRange={[10, 0]}>
+        <Html
+          position={[0, tubeRadiusInCanvas + 0.12, 0]}
+          center
+          zIndexRange={[10, 0]}
+        >
           <div
             onClick={(e) => {
               e.stopPropagation();
               selectTube(tube.id);
             }}
-            className={`px-2 py-0.5 rounded font-mono text-[9px] shadow-lg backdrop-blur-md flex items-center gap-1.5 cursor-pointer border ${
+            className={`px-2 py-0.5 rounded-full font-mono text-[10px] tracking-tight whitespace-nowrap shadow-md backdrop-blur-md flex items-center gap-1.5 cursor-pointer select-none transition-all duration-150 border ${
               isActive
-                ? 'bg-amber-500 text-zinc-950 border-amber-400 font-bold scale-105'
-                : 'bg-zinc-950/90 text-zinc-300 border-zinc-700 hover:border-amber-400'
+                ? 'bg-zinc-950/90 text-amber-400 border-amber-500/80 shadow-amber-500/20'
+                : 'bg-zinc-950/75 text-zinc-400 border-zinc-800 hover:border-zinc-600 hover:text-zinc-200'
             }`}
           >
-            <span>{tube.name}</span>
-            <span className="text-[8px] opacity-80">({tube.length}mm)</span>
+            {isActive && (
+              <span className="w-1.5 h-1.5 rounded-full bg-amber-400 shadow-[0_0_6px_#f59e0b] animate-pulse" />
+            )}
+            <span className="font-medium">{tube.name}</span>
+            <span className="text-[9px] opacity-60 font-normal">({tube.length}mm)</span>
           </div>
         </Html>
       )}

@@ -13,6 +13,7 @@ import { GCodeExportModal } from './GCodeExportModal';
 import { ProjectLoadModal } from './ProjectLoadModal';
 import { useAuthStore } from '../store/useAuthStore';
 import { UserProfileMenu } from './UserProfileMenu';
+import { triggerCameraPreset } from './canvas/CameraController';
 import {
   Zap,
   RotateCcw,
@@ -266,9 +267,18 @@ export const HeaderNav: React.FC<HeaderNavProps> = ({ onOpenShortcuts }) => {
             </button>
             {user?.role !== 'ROLE_OPERATOR' && (
               <button
-                onClick={resetDefault}
+                onClick={() => {
+                  resetDefault();
+                  triggerCameraPreset('reset');
+                  showSuccess(
+                    i18n.language === 'fr' ? 'Scène Réinitialisée' : 'Scene Reset',
+                    i18n.language === 'fr'
+                      ? 'Tube par défaut vierge sans perçages ni usinages.'
+                      : 'Clean default tube with no holes or cuts.'
+                  );
+                }}
                 className="p-1 hover:bg-zinc-800 text-zinc-400 hover:text-zinc-100 rounded transition"
-                title="Reset CAD Scene"
+                title={i18n.language === 'fr' ? 'Réinitialiser la scène CAD' : 'Reset CAD Scene'}
               >
                 <RotateCcw className="w-3 h-3" />
               </button>

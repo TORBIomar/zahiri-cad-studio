@@ -237,46 +237,7 @@ export interface CadState {
   redo: () => void;
 }
 
-const INITIAL_CUTS: CutFeature[] = [
-  {
-    id: 'cut-1',
-    name: 'Hole Ø30 @ 300mm',
-    type: 'hole',
-    positionZ: 300,
-    polarAngle: 0,
-    radius: 15,
-    slotLength: 50,
-    slotWidth: 20,
-    mitreAngle: 45,
-    enabled: true,
-  },
-  {
-    id: 'cut-2',
-    name: 'Slot 60x20 @ 700mm',
-    type: 'slot',
-    positionZ: 700,
-    polarAngle: 90,
-    radius: 15,
-    slotLength: 60,
-    slotWidth: 20,
-    mitreAngle: 45,
-    enabled: true,
-  },
-  {
-    id: 'cut-3',
-    name: 'End Mitre 45°',
-    type: 'mitre_end',
-    positionZ: 1200,
-    polarAngle: 0,
-    radius: 15,
-    slotLength: 50,
-    slotWidth: 20,
-    mitreAngle: 45,
-    enabled: true,
-  },
-];
-
-const INITIAL_TUBE: TubeItem = {
+const DEFAULT_CLEAN_TUBE: TubeItem = {
   id: 'tube-1',
   name: 'Main Chassis Tube',
   profileType: 'round',
@@ -289,26 +250,26 @@ const INITIAL_TUBE: TubeItem = {
   weldSeamAngle: 0,
   position: [0, 0, 0],
   rotation: [0, 0, 0],
-  cuts: INITIAL_CUTS,
-  selectedCutId: 'cut-1',
+  cuts: [],
+  selectedCutId: null,
   materialId: 'steel_304',
 };
 
 const DEFAULT_STATE = {
-  tubes: [INITIAL_TUBE],
+  tubes: [DEFAULT_CLEAN_TUBE],
   activeTubeId: 'tube-1',
 
-  profileType: INITIAL_TUBE.profileType,
-  length: INITIAL_TUBE.length,
-  outerRadius: INITIAL_TUBE.outerRadius,
-  wallThickness: INITIAL_TUBE.wallThickness,
-  rectWidth: INITIAL_TUBE.rectWidth,
-  rectHeight: INITIAL_TUBE.rectHeight,
-  cornerRadius: INITIAL_TUBE.cornerRadius,
-  weldSeamAngle: INITIAL_TUBE.weldSeamAngle,
-  cuts: INITIAL_TUBE.cuts,
-  selectedCutId: INITIAL_TUBE.selectedCutId,
-  materialId: INITIAL_TUBE.materialId,
+  profileType: DEFAULT_CLEAN_TUBE.profileType,
+  length: DEFAULT_CLEAN_TUBE.length,
+  outerRadius: DEFAULT_CLEAN_TUBE.outerRadius,
+  wallThickness: DEFAULT_CLEAN_TUBE.wallThickness,
+  rectWidth: DEFAULT_CLEAN_TUBE.rectWidth,
+  rectHeight: DEFAULT_CLEAN_TUBE.rectHeight,
+  cornerRadius: DEFAULT_CLEAN_TUBE.cornerRadius,
+  weldSeamAngle: DEFAULT_CLEAN_TUBE.weldSeamAngle,
+  cuts: [] as CutFeature[],
+  selectedCutId: null as string | null,
+  materialId: DEFAULT_CLEAN_TUBE.materialId,
 
   laserPowerKW: 3.0,
   assistGas: 'nitrogen' as const,
@@ -317,8 +278,8 @@ const DEFAULT_STATE = {
   showAxes: true,
   showDimensions: true,
   isLaserAnimating: true,
-  undoStack: [],
-  redoStack: [],
+  undoStack: [] as HistorySnapshot[],
+  redoStack: [] as HistorySnapshot[],
 
   isLeftSidebarOpen: true,
   isRightSidebarOpen: true,
@@ -622,7 +583,46 @@ export const useCadStore = create<CadState>((set, get) => ({
 
   resetDefault: () => {
     if (useAuthStore.getState().user?.role === 'ROLE_OPERATOR') return;
-    set(DEFAULT_STATE);
+    const cleanTube: TubeItem = {
+      id: 'tube-1',
+      name: 'Main Chassis Tube',
+      profileType: 'round',
+      length: 1200,
+      outerRadius: 40,
+      wallThickness: 3.5,
+      rectWidth: 80,
+      rectHeight: 60,
+      cornerRadius: 3.0,
+      weldSeamAngle: 0,
+      position: [0, 0, 0],
+      rotation: [0, 0, 0],
+      cuts: [],
+      selectedCutId: null,
+      materialId: 'steel_304',
+    };
+
+    set({
+      ...DEFAULT_STATE,
+      tubes: [cleanTube],
+      activeTubeId: 'tube-1',
+      profileType: cleanTube.profileType,
+      length: cleanTube.length,
+      outerRadius: cleanTube.outerRadius,
+      wallThickness: cleanTube.wallThickness,
+      rectWidth: cleanTube.rectWidth,
+      rectHeight: cleanTube.rectHeight,
+      cornerRadius: cleanTube.cornerRadius,
+      weldSeamAngle: cleanTube.weldSeamAngle,
+      cuts: [],
+      selectedCutId: null,
+      materialId: cleanTube.materialId,
+      undoStack: [],
+      redoStack: [],
+      incidents: [],
+      workflowStatus: 'DRAFT',
+      workflowNotes: 'Initial CAD draft created by Engineer.',
+      designLocked: false,
+    });
   },
 
   undo: () => {
